@@ -482,11 +482,6 @@ const SITE_PASSWORD = 'Reda@6666';
   function unlock(){
     lockScreen.classList.add('hidden');
     appWrap.classList.remove('app-wrap-locked');
-    sessionStorage.setItem('madlouh_unlocked', '1');
-  }
-
-  if(sessionStorage.getItem('madlouh_unlocked') === '1'){
-    unlock();
   }
 
   form.addEventListener('submit', e=>{
