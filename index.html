@@ -222,6 +222,25 @@
   }
   #lockForm button:hover{background:var(--teal-700);}
   .lock-error{min-height:18px; margin-top:12px; font-size:12.5px; color:var(--rose); font-weight:700;}
+  .date-filter-bar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:14px 18px; margin-bottom:22px; box-shadow:var(--shadow);
+  }
+  .df-label{font-size:13px; font-weight:700; color:var(--teal-900); white-space:nowrap;}
+  .date-filter-bar input[type=date]{
+    border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-family:inherit;
+    font-size:13px; background:var(--paper); color:var(--ink); outline:none; cursor:pointer;
+  }
+  .date-filter-bar input[type=date]:focus{border-color:var(--teal-300);}
+  .df-sep{font-size:13px; color:#8a9b9b;}
+  .df-clear{
+    cursor:pointer; font-family:inherit; font-size:12.5px; font-weight:700;
+    padding:8px 14px; border-radius:8px; border:1px solid var(--line);
+    background:transparent; color:#5b6f6f; transition:.15s;
+  }
+  .df-clear:hover{background:var(--teal-900); color:#fff; border-color:var(--teal-900);}
+  .df-result{font-size:12px; color:var(--teal-700); font-weight:700; margin-inline-start:4px;}
 </style>
 </head>
 <body>
@@ -307,6 +326,14 @@
     </div>
 
     <div id="clinicContent" style="display:none;">
+      <div class="date-filter-bar">
+        <span class="df-label">📅 فلتر بالتاريخ</span>
+        <input type="date" id="clinicDateFrom" title="من">
+        <span class="df-sep">←</span>
+        <input type="date" id="clinicDateTo" title="إلى">
+        <button class="df-clear" id="clinicDateClear">كل التواريخ</button>
+        <span class="df-result" id="clinicDateResult"></span>
+      </div>
       <div class="kpi-grid">
         <div class="kpi ink">
           <div class="label">إجمالي الدخل النقدي (بدون ضريبة)</div>
@@ -391,6 +418,14 @@
     </div>
 
     <div id="pharmaContent" style="display:none;">
+      <div class="date-filter-bar">
+        <span class="df-label">📅 فلتر بالتاريخ</span>
+        <input type="date" id="pharmaDateFrom" title="من">
+        <span class="df-sep">←</span>
+        <input type="date" id="pharmaDateTo" title="إلى">
+        <button class="df-clear" id="pharmaDateClear">كل التواريخ</button>
+        <span class="df-result" id="pharmaDateResult"></span>
+      </div>
       <div class="kpi-grid">
         <div class="kpi ink">
           <div class="label">إجمالي الدخل النقدي</div>
@@ -506,6 +541,29 @@ const PHARMA_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTCoSB
 
 document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
 
+// Normalize date strings like 2026/07/01 or 2026-07-01 or 01/07/2026 → YYYY-MM-DD for comparison
+function toISO(str){
+  if(!str) return '';
+  str = str.trim();
+  // YYYY/MM/DD or YYYY-MM-DD
+  if(/^\d{4}[\/\-]\d{2}[\/\-]\d{2}$/.test(str)) return str.replace(/\//g,'-');
+  // DD/MM/YYYY
+  if(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(str)){
+    const [d,m,y] = str.split(/[\/\-]/); return `${y}-${m}-${d}`;
+  }
+  return str;
+}
+function filterByDate(data, filter){
+  if(!filter.from && !filter.to) return data;
+  return data.filter(r=>{
+    const d = toISO(r.date);
+    if(!d) return true;
+    if(filter.from && d < filter.from) return false;
+    if(filter.to && d > filter.to) return false;
+    return true;
+  });
+}
+
 // ---------- Tabs ----------
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -577,6 +635,7 @@ function setLinkStatus(elId, message, kind){
 
 // ================= CLINIC =================
 let clinicData = [];
+let clinicFilter = {from:'', to:''};
 let clinicSort = {key:'total', dir:'desc'};
 let clinicBarChart, clinicDonutChart;
 
@@ -586,6 +645,7 @@ function processClinicRows(rows){
   const kCashNoVat = findKey(rows[0], ['Cash income without Vat']);
   const kCashVat = findKey(rows[0], ['Cash income with vat']);
   const kCredit = findKey(rows[0], ['credit']);
+  const kDate = findKey(rows[0], ['Date','date','التاريخ']);
 
   clinicData = rows
     .filter(r => r[kDoctor] && String(r[kDoctor]).trim() !== '')
@@ -595,6 +655,7 @@ function processClinicRows(rows){
       cashNoVat: Number(r[kCashNoVat])||0,
       cashVat: Number(r[kCashVat])||0,
       credit: Number(r[kCredit])||0,
+      date: kDate ? String(r[kDate]||'').trim() : '',
     }))
     .map(r => ({...r, total: r.cashVat + r.credit}));
 
@@ -639,15 +700,16 @@ function renderClinic(){
 }
 
 function renderClinicKpis(){
-  const totalCashNoVat = clinicData.reduce((s,r)=>s+r.cashNoVat,0);
-  const totalCashVat = clinicData.reduce((s,r)=>s+r.cashVat,0);
-  const totalCredit = clinicData.reduce((s,r)=>s+r.credit,0);
-  const totalAll = clinicData.reduce((s,r)=>s+r.total,0);
+  const data = filterByDate(clinicData, clinicFilter);
+  const totalCashNoVat = data.reduce((s,r)=>s+r.cashNoVat,0);
+  const totalCashVat = data.reduce((s,r)=>s+r.cashVat,0);
+  const totalCredit = data.reduce((s,r)=>s+r.credit,0);
+  const totalAll = data.reduce((s,r)=>s+r.total,0);
 
   document.getElementById('kClinicCashNoVat').textContent = fmt(totalCashNoVat);
   document.getElementById('kClinicCashVat').textContent = fmt(totalCashVat);
   document.getElementById('kClinicCredit').textContent = fmt(totalCredit);
-  document.getElementById('kClinicDoctors').textContent = clinicData.length;
+  document.getElementById('kClinicDoctors').textContent = data.length;
 
   document.getElementById('fClinicCashNoVat').textContent = fmt(totalCashNoVat);
   document.getElementById('fClinicCashVat').textContent = fmt(totalCashVat);
@@ -656,11 +718,12 @@ function renderClinicKpis(){
 }
 
 function renderClinicCharts(){
-  const totalCashNoVat = clinicData.reduce((s,r)=>s+r.cashNoVat,0);
-  const totalCredit = clinicData.reduce((s,r)=>s+r.credit,0);
+  const data = filterByDate(clinicData, clinicFilter);
+  const totalCashNoVat = data.reduce((s,r)=>s+r.cashNoVat,0);
+  const totalCredit = data.reduce((s,r)=>s+r.credit,0);
 
   // Bar chart - top 10 by cashNoVat
-  const top10 = [...clinicData].sort((a,b)=>b.cashNoVat-a.cashNoVat).slice(0,10);
+  const top10 = [...data].sort((a,b)=>b.cashNoVat-a.cashNoVat).slice(0,10);
   if(clinicBarChart) clinicBarChart.destroy();
   clinicBarChart = new Chart(document.getElementById('clinicBarChart'), {
     type:'bar',
@@ -744,7 +807,8 @@ function renderClinicCharts(){
 
 function drawClinicTable(){
   const search = document.getElementById('clinicSearch').value.trim().toLowerCase();
-  let rows = clinicData.filter(r =>
+  const filtered = filterByDate(clinicData, clinicFilter);
+  let rows = filtered.filter(r =>
     r.doctor.toLowerCase().includes(search) || r.clinic.toLowerCase().includes(search)
   );
   rows.sort((a,b)=>{
@@ -752,8 +816,8 @@ function drawClinicTable(){
     if(typeof va === 'string') return clinicSort.dir==='asc' ? va.localeCompare(vb,'ar') : vb.localeCompare(va,'ar');
     return clinicSort.dir==='asc' ? va-vb : vb-va;
   });
-  const maxTotal = Math.max(...clinicData.map(r=>r.total), 1);
-  const grandTotal = clinicData.reduce((s,r)=>s+r.total,0);
+  const maxTotal = Math.max(...filtered.map(r=>r.total), 1);
+  const grandTotal = filtered.reduce((s,r)=>s+r.total,0);
   const tbody = document.getElementById('clinicTbody');
   tbody.innerHTML = rows.map(r => {
     const pct = grandTotal ? (r.total/grandTotal*100).toFixed(1) : '0.0';
@@ -787,8 +851,28 @@ document.querySelectorAll('#clinicTable thead th[data-key]').forEach(th=>{
   });
 });
 
+function applyClinicDateFilter(){
+  clinicFilter.from = document.getElementById('clinicDateFrom').value;
+  clinicFilter.to = document.getElementById('clinicDateTo').value;
+  const count = filterByDate(clinicData, clinicFilter).length;
+  const total = clinicData.length;
+  document.getElementById('clinicDateResult').textContent =
+    (clinicFilter.from || clinicFilter.to) ? `${count} من ${total} سجل` : '';
+  renderClinic();
+}
+document.getElementById('clinicDateFrom').addEventListener('change', applyClinicDateFilter);
+document.getElementById('clinicDateTo').addEventListener('change', applyClinicDateFilter);
+document.getElementById('clinicDateClear').addEventListener('click', ()=>{
+  document.getElementById('clinicDateFrom').value = '';
+  document.getElementById('clinicDateTo').value = '';
+  clinicFilter = {from:'', to:''};
+  document.getElementById('clinicDateResult').textContent = '';
+  renderClinic();
+});
+
 // ================= PHARMACY =================
 let pharmaData = [];
+let pharmaFilter = {from:'', to:''};
 let pharmaSort = {key:'netNoVat', dir:'desc'};
 let pharmaBarChart, pharmaDonutChart;
 
@@ -798,6 +882,7 @@ function processPharmaRows(rows){
   const kCash = findKey(rows[0], ['Cash income']);
   const kCredit = findKey(rows[0], ['CREDIT','credit']);
   const kNetNoVat = findKey(rows[0], ['Net Without Vat']);
+  const kDate = findKey(rows[0], ['Date','date','التاريخ']);
 
   pharmaData = rows
     .map(r => ({
@@ -808,6 +893,7 @@ function processPharmaRows(rows){
       cash: Number(r[kCash])||0,
       credit: Number(r[kCredit])||0,
       netNoVat: Number(r[kNetNoVat])||0,
+      date: kDate ? String(r[kDate]||'').trim() : '',
     }))
     .filter(r => r.cash !== 0 || r.credit !== 0 || r.netNoVat !== 0);
 
@@ -856,14 +942,15 @@ function renderPharma(){
 }
 
 function renderPharmaKpis(){
-  const totalCash = pharmaData.reduce((s,r)=>s+r.cash,0);
-  const totalCredit = pharmaData.reduce((s,r)=>s+r.credit,0);
-  const totalNetNoVat = pharmaData.reduce((s,r)=>s+r.netNoVat,0);
+  const data = filterByDate(pharmaData, pharmaFilter);
+  const totalCash = data.reduce((s,r)=>s+r.cash,0);
+  const totalCredit = data.reduce((s,r)=>s+r.credit,0);
+  const totalNetNoVat = data.reduce((s,r)=>s+r.netNoVat,0);
 
   document.getElementById('kPharmaCash').textContent = fmt(totalCash);
   document.getElementById('kPharmaCredit').textContent = fmt(totalCredit);
   document.getElementById('kPharmaNetNoVat').textContent = fmt(totalNetNoVat);
-  document.getElementById('kPharmaCount').textContent = pharmaData.length;
+  document.getElementById('kPharmaCount').textContent = data.length;
 
   document.getElementById('fPharmaCash').textContent = fmt(totalCash);
   document.getElementById('fPharmaCredit').textContent = fmt(totalCredit);
@@ -871,9 +958,10 @@ function renderPharmaKpis(){
 }
 
 function renderPharmaCharts(){
-  const totalCash = pharmaData.reduce((s,r)=>s+r.cash,0);
-  const totalCredit = pharmaData.reduce((s,r)=>s+r.credit,0);
-  const top10 = [...pharmaData].sort((a,b)=>b.netNoVat-a.netNoVat).slice(0,10);
+  const data = filterByDate(pharmaData, pharmaFilter);
+  const totalCash = data.reduce((s,r)=>s+r.cash,0);
+  const totalCredit = data.reduce((s,r)=>s+r.credit,0);
+  const top10 = [...data].sort((a,b)=>b.netNoVat-a.netNoVat).slice(0,10);
   if(pharmaBarChart) pharmaBarChart.destroy();
   pharmaBarChart = new Chart(document.getElementById('pharmaBarChart'), {
     type:'bar',
@@ -959,7 +1047,8 @@ function renderPharmaCharts(){
 
 function drawPharmaTable(){
   const search = document.getElementById('pharmaSearch').value.trim().toLowerCase();
-  let rows = pharmaData.filter(r =>
+  const filtered = filterByDate(pharmaData, pharmaFilter);
+  let rows = filtered.filter(r =>
     r.doctor.toLowerCase().includes(search) || r.clinic.toLowerCase().includes(search)
   );
   rows.sort((a,b)=>{
@@ -989,6 +1078,25 @@ document.querySelectorAll('#pharmaTable thead th[data-key]').forEach(th=>{
     th.querySelector('.arrow').textContent = pharmaSort.dir==='asc' ? '▲' : '▼';
     drawPharmaTable();
   });
+});
+
+function applyPharmaDateFilter(){
+  pharmaFilter.from = document.getElementById('pharmaDateFrom').value;
+  pharmaFilter.to = document.getElementById('pharmaDateTo').value;
+  const count = filterByDate(pharmaData, pharmaFilter).length;
+  const total = pharmaData.length;
+  document.getElementById('pharmaDateResult').textContent =
+    (pharmaFilter.from || pharmaFilter.to) ? `${count} من ${total} سجل` : '';
+  renderPharma();
+}
+document.getElementById('pharmaDateFrom').addEventListener('change', applyPharmaDateFilter);
+document.getElementById('pharmaDateTo').addEventListener('change', applyPharmaDateFilter);
+document.getElementById('pharmaDateClear').addEventListener('click', ()=>{
+  document.getElementById('pharmaDateFrom').value = '';
+  document.getElementById('pharmaDateTo').value = '';
+  pharmaFilter = {from:'', to:''};
+  document.getElementById('pharmaDateResult').textContent = '';
+  renderPharma();
 });
 </script>
 </body>
