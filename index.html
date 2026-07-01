@@ -541,23 +541,45 @@ const PHARMA_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTCoSB
 
 document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
 
-// Normalize date strings like 2026/07/01 or 2026-07-01 or 01/07/2026 → YYYY-MM-DD for comparison
+// Robust date parser — handles all formats Google Sheets CSV might export
 function toISO(str){
+  if(!str && str !== 0) return '';
+  str = String(str).trim();
   if(!str) return '';
-  str = str.trim();
-  // YYYY/MM/DD or YYYY-MM-DD
-  if(/^\d{4}[\/\-]\d{2}[\/\-]\d{2}$/.test(str)) return str.replace(/\//g,'-');
-  // DD/MM/YYYY
-  if(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(str)){
-    const [d,m,y] = str.split(/[\/\-]/); return `${y}-${m}-${d}`;
+
+  // Already YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0,10);
+  // YYYY/MM/DD
+  if(/^\d{4}\/\d{2}\/\d{2}/.test(str)){
+    return str.slice(0,10).replace(/\//g,'-');
   }
-  return str;
+  // DD/MM/YYYY
+  if(/^\d{2}\/\d{2}\/\d{4}/.test(str)){
+    const p = str.slice(0,10).split('/');
+    return `${p[2]}-${p[1]}-${p[0]}`;
+  }
+  // MM/DD/YYYY (US)
+  if(/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)){
+    const p = str.split('/');
+    return `${p[2].slice(0,4)}-${p[0].padStart(2,'0')}-${p[1].padStart(2,'0')}`;
+  }
+  // Excel serial number (numeric)
+  const n = Number(str);
+  if(!isNaN(n) && n > 40000 && n < 60000){
+    const d = new Date(Math.round((n - 25569) * 86400 * 1000));
+    return d.toISOString().slice(0,10);
+  }
+  // Fallback: let JS parse it
+  const d = new Date(str);
+  if(!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+  return '';
 }
+
 function filterByDate(data, filter){
   if(!filter.from && !filter.to) return data;
   return data.filter(r=>{
     const d = toISO(r.date);
-    if(!d) return true;
+    if(!d) return true; // no date → always show
     if(filter.from && d < filter.from) return false;
     if(filter.to && d > filter.to) return false;
     return true;
@@ -645,7 +667,7 @@ function processClinicRows(rows){
   const kCashNoVat = findKey(rows[0], ['Cash income without Vat']);
   const kCashVat = findKey(rows[0], ['Cash income with vat']);
   const kCredit = findKey(rows[0], ['credit']);
-  const kDate = findKey(rows[0], ['Date','date','التاريخ']);
+  const kDate = findKey(rows[0], ['Date','date','التاريخ','DATE','تاريخ']);
 
   clinicData = rows
     .filter(r => r[kDoctor] && String(r[kDoctor]).trim() !== '')
@@ -658,6 +680,12 @@ function processClinicRows(rows){
       date: kDate ? String(r[kDate]||'').trim() : '',
     }))
     .map(r => ({...r, total: r.cashVat + r.credit}));
+
+  // Show detected date format hint
+  const sampleDate = (clinicData.find(r=>r.date) || {}).date || '';
+  const sampleISO = toISO(sampleDate);
+  document.getElementById('clinicDateResult').textContent =
+    sampleDate ? `تنسيق التاريخ المكتشف: ${sampleDate} → ${sampleISO}` : 'لا يوجد عمود تاريخ';
 
   document.getElementById('clinicEmpty').style.display='none';
   document.getElementById('clinicContent').style.display='block';
@@ -882,7 +910,7 @@ function processPharmaRows(rows){
   const kCash = findKey(rows[0], ['Cash income']);
   const kCredit = findKey(rows[0], ['CREDIT','credit']);
   const kNetNoVat = findKey(rows[0], ['Net Without Vat']);
-  const kDate = findKey(rows[0], ['Date','date','التاريخ']);
+  const kDate = findKey(rows[0], ['Date','date','التاريخ','DATE','تاريخ']);
 
   pharmaData = rows
     .map(r => ({
@@ -896,6 +924,11 @@ function processPharmaRows(rows){
       date: kDate ? String(r[kDate]||'').trim() : '',
     }))
     .filter(r => r.cash !== 0 || r.credit !== 0 || r.netNoVat !== 0);
+
+  const sampleDateP = (pharmaData.find(r=>r.date) || {}).date || '';
+  const sampleISOp = toISO(sampleDateP);
+  document.getElementById('pharmaDateResult').textContent =
+    sampleDateP ? `تنسيق التاريخ المكتشف: ${sampleDateP} → ${sampleISOp}` : 'لا يوجد عمود تاريخ';
 
   document.getElementById('pharmaEmpty').style.display='none';
   document.getElementById('pharmaContent').style.display='block';
