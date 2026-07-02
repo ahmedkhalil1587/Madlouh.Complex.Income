@@ -489,6 +489,7 @@
           <table id="pharmaTable">
             <thead>
               <tr>
+                <th data-key="date">التاريخ <span class="arrow"></span></th>
                 <th data-key="doctor">الطبيب / المصدر <span class="arrow"></span></th>
                 <th data-key="clinic">العيادة <span class="arrow"></span></th>
                 <th data-key="cash">نقدي <span class="arrow"></span></th>
@@ -499,6 +500,7 @@
             <tbody id="pharmaTbody"></tbody>
             <tfoot>
               <tr>
+                <td></td>
                 <td>الإجمالي</td>
                 <td></td>
                 <td class="num" id="fPharmaCash">0</td>
@@ -556,22 +558,32 @@ const PHARMA_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTCoSB
 
 document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
 
-// Robust date parser — handles all formats Google Sheets CSV might export
+// Parse numbers that may have comma thousands-separators e.g. "15,778.81"
+function parseNum(v){
+  if(v === null || v === undefined || v === '') return 0;
+  if(typeof v === 'number') return v;
+  return Number(String(v).replace(/,/g, '')) || 0;
+}
+
+// Robust date parser — handles Date objects, ISO strings, serial numbers, all formats
 function toISO(str){
-  if(!str && str !== 0) return '';
+  if(str === null || str === undefined || str === '') return '';
+  // Already a JS Date object (XLSX.js parses dates from .xlsx natively)
+  if(str instanceof Date){
+    if(isNaN(str.getTime())) return '';
+    return str.toISOString().slice(0,10);
+  }
   str = String(str).trim();
   if(!str) return '';
-
+  // ISO datetime string e.g. 2026-01-31T00:00:00.000Z
+  if(/^\d{4}-\d{2}-\d{2}T/.test(str)) return str.slice(0,10);
   // Already YYYY-MM-DD
-  if(/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
   // YYYY/MM/DD
-  if(/^\d{4}\/\d{2}\/\d{2}/.test(str)){
-    return str.slice(0,10).replace(/\//g,'-');
-  }
+  if(/^\d{4}\/\d{2}\/\d{2}/.test(str)) return str.slice(0,10).replace(/\//g,'-');
   // DD/MM/YYYY
   if(/^\d{2}\/\d{2}\/\d{4}/.test(str)){
-    const p = str.slice(0,10).split('/');
-    return `${p[2]}-${p[1]}-${p[0]}`;
+    const p = str.slice(0,10).split('/'); return `${p[2]}-${p[1]}-${p[0]}`;
   }
   // MM/DD/YYYY (US)
   if(/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)){
@@ -689,10 +701,10 @@ function processClinicRows(rows){
     .map(r => ({
       doctor: String(r[kDoctor]).trim(),
       clinic: kClinic ? String(r[kClinic]||'').trim() : '',
-      cashNoVat: Number(r[kCashNoVat])||0,
-      cashVat: Number(r[kCashVat])||0,
-      credit: Number(r[kCredit])||0,
-      date: kDate ? String(r[kDate]||'').trim() : '',
+      cashNoVat: parseNum(r[kCashNoVat]),
+      cashVat: parseNum(r[kCashVat]),
+      credit: parseNum(r[kCredit]),
+      date: kDate ? r[kDate] : '',
     }))
     .map(r => ({...r, total: r.cashVat + r.credit}));
 
@@ -1043,6 +1055,17 @@ function processPharmaRows(rows){
   const kCash = findKey(rows[0], ['Cash income']);
   const kCredit = findKey(rows[0], ['CREDIT','credit']);
   const kNetNoVat = findKey(rows[0], ['Net Without Vat']);
+  const kNetWVat  = findKey(rows[0], ['NET W VAT','Net W Vat']);
+
+  // Helper: pick the correct net value — falls back to NET W VAT if Net Without Vat is a corrupted date
+  function pickNet(r){
+    const raw = kNetNoVat ? r[kNetNoVat] : null;
+    // If raw is a Date object or a huge serial number (>100000), it's corrupted → use NET W VAT
+    if(raw instanceof Date || (typeof raw === 'number' && raw > 100000)) {
+      return kNetWVat ? parseNum(r[kNetWVat]) : 0;
+    }
+    return parseNum(raw);
+  }
   const kDate = findKey(rows[0], ['Date','date','التاريخ','DATE','تاريخ']);
 
   pharmaData = rows
@@ -1051,10 +1074,10 @@ function processPharmaRows(rows){
         ? String(r[kDoctor]).trim()
         : 'مبيعات الصيدلية المباشرة (بدون طبيب)',
       clinic: kClinic ? String(r[kClinic]||'').trim() : '',
-      cash: Number(r[kCash])||0,
-      credit: Number(r[kCredit])||0,
-      netNoVat: Number(r[kNetNoVat])||0,
-      date: kDate ? String(r[kDate]||'').trim() : '',
+      cash: parseNum(r[kCash]),
+      credit: parseNum(r[kCredit]),
+      netNoVat: pickNet(r),
+      date: kDate ? r[kDate] : '',
     }))
     .filter(r => r.cash !== 0 || r.credit !== 0 || r.netNoVat !== 0);
 
@@ -1321,13 +1344,14 @@ function drawPharmaTable(){
   const tbody = document.getElementById('pharmaTbody');
   tbody.innerHTML = rows.map(r => `
     <tr>
+      <td class="num date-cell">${toISO(r.date) || '—'}</td>
       <td class="doc-name">${r.doctor}</td>
       <td class="clinic-tag">${r.clinic}</td>
       <td class="num">${fmt(r.cash)}</td>
       <td class="num">${fmt(r.credit)}</td>
       <td class="num">${fmt(r.netNoVat)}</td>
     </tr>
-  `).join('') || '<tr><td colspan="5" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>';
+  `).join('') || '<tr><td colspan="6" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>';
 }
 
 document.getElementById('pharmaSearch').addEventListener('input', drawPharmaTable);
