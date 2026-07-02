@@ -357,6 +357,12 @@
         </div>
       </div>
 
+      <div id="clinicTrendCard" class="card" style="display:none; margin-bottom:18px;">
+        <h3>📈 الدخل اليومي خلال الفترة المختارة</h3>
+        <div class="hint">نقدي بدون ضريبة · آجل — لكل يوم في الفترة المحددة</div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="clinicTrendChart"></canvas></div>
+      </div>
+
       <div class="charts-row">
         <div class="card">
           <h3>أعلى 10 أطباء دخلاً (نقدي بدون ضريبة)</h3>
@@ -447,6 +453,12 @@
           <div class="value mono" id="kPharmaCount">0</div>
           <div class="sub">Source Clinics</div>
         </div>
+      </div>
+
+      <div id="pharmaTrendCard" class="card" style="display:none; margin-bottom:18px;">
+        <h3>📈 الإيراد اليومي خلال الفترة المختارة</h3>
+        <div class="hint">نقدي · صافي بدون ضريبة — لكل يوم في الفترة المحددة</div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="pharmaTrendChart"></canvas></div>
       </div>
 
       <div class="charts-row">
@@ -659,7 +671,7 @@ function setLinkStatus(elId, message, kind){
 let clinicData = [];
 let clinicFilter = {from:'', to:''};
 let clinicSort = {key:'total', dir:'desc'};
-let clinicBarChart, clinicDonutChart;
+let clinicBarChart, clinicDonutChart, clinicTrendChart;
 
 function processClinicRows(rows){
   const kDoctor = findKey(rows[0], ['Doctor Name','doctor']);
@@ -724,6 +736,7 @@ document.getElementById('clinicSheetBtn').addEventListener('click', loadClinicFr
 function renderClinic(){
   renderClinicKpis();
   try{ renderClinicCharts(); }catch(err){ console.error('clinic charts failed:', err); }
+  try{ renderClinicTrend(); }catch(err){ console.error('clinic trend failed:', err); }
   try{ drawClinicTable(); }catch(err){ console.error('clinic table failed:', err); }
 }
 
@@ -833,6 +846,54 @@ function renderClinicCharts(){
   });
 }
 
+function renderClinicTrend(){
+  const data = filterByDate(clinicData, clinicFilter);
+  const card = document.getElementById('clinicTrendCard');
+  const hasFilter = clinicFilter.from || clinicFilter.to;
+  if(!hasFilter || data.length === 0){ card.style.display='none'; return; }
+  card.style.display='block';
+
+  // Group by date
+  const byDate = {};
+  data.forEach(r=>{
+    const d = toISO(r.date) || 'غير محدد';
+    if(!byDate[d]) byDate[d] = {cashNoVat:0, credit:0};
+    byDate[d].cashNoVat += r.cashNoVat;
+    byDate[d].credit += r.credit;
+  });
+  const labels = Object.keys(byDate).sort();
+  const cashVals = labels.map(d=>byDate[d].cashNoVat);
+  const creditVals = labels.map(d=>byDate[d].credit);
+
+  if(clinicTrendChart) clinicTrendChart.destroy();
+  clinicTrendChart = new Chart(document.getElementById('clinicTrendChart'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'نقدي بدون ضريبة', data:cashVals, backgroundColor:'#1f8a7a', borderRadius:5, maxBarThickness:32 },
+        { label:'آجل (Credit)', data:creditVals, backgroundColor:'#c8932f', borderRadius:5, maxBarThickness:32 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'top', labels:{font:{family:'Tajawal', size:12}}},
+        tooltip:{ callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
+        datalabels:{
+          anchor:'end', align:'top', offset:2,
+          color:'#0e2b2b', font:{family:'Tajawal', size:11, weight:700},
+          formatter: v => v > 0 ? fmt(v) : ''
+        }
+      },
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{family:'JetBrains Mono', size:11}}},
+        y:{grid:{color:'rgba(14,43,43,0.06)'}, ticks:{callback: v => fmt(v)}}
+      }
+    }
+  });
+}
+
 function drawClinicTable(){
   const search = document.getElementById('clinicSearch').value.trim().toLowerCase();
   const filtered = filterByDate(clinicData, clinicFilter);
@@ -902,7 +963,7 @@ document.getElementById('clinicDateClear').addEventListener('click', ()=>{
 let pharmaData = [];
 let pharmaFilter = {from:'', to:''};
 let pharmaSort = {key:'netNoVat', dir:'desc'};
-let pharmaBarChart, pharmaDonutChart;
+let pharmaBarChart, pharmaDonutChart, pharmaTrendChart;
 
 function processPharmaRows(rows){
   const kDoctor = findKey(rows[0], ['doctor','Doctor Name']);
@@ -971,6 +1032,7 @@ loadPharmaFromSheet();
 function renderPharma(){
   renderPharmaKpis();
   try{ renderPharmaCharts(); }catch(err){ console.error('pharma charts failed:', err); }
+  try{ renderPharmaTrend(); }catch(err){ console.error('pharma trend failed:', err); }
   try{ drawPharmaTable(); }catch(err){ console.error('pharma table failed:', err); }
 }
 
@@ -1073,6 +1135,53 @@ function renderPharmaCharts(){
             return `${pct}%`;
           }
         }
+      }
+    }
+  });
+}
+
+function renderPharmaTrend(){
+  const data = filterByDate(pharmaData, pharmaFilter);
+  const card = document.getElementById('pharmaTrendCard');
+  const hasFilter = pharmaFilter.from || pharmaFilter.to;
+  if(!hasFilter || data.length === 0){ card.style.display='none'; return; }
+  card.style.display='block';
+
+  const byDate = {};
+  data.forEach(r=>{
+    const d = toISO(r.date) || 'غير محدد';
+    if(!byDate[d]) byDate[d] = {cash:0, netNoVat:0};
+    byDate[d].cash += r.cash;
+    byDate[d].netNoVat += r.netNoVat;
+  });
+  const labels = Object.keys(byDate).sort();
+  const cashVals = labels.map(d=>byDate[d].cash);
+  const netVals = labels.map(d=>byDate[d].netNoVat);
+
+  if(pharmaTrendChart) pharmaTrendChart.destroy();
+  pharmaTrendChart = new Chart(document.getElementById('pharmaTrendChart'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'نقدي', data:cashVals, backgroundColor:'#c8932f', borderRadius:5, maxBarThickness:32 },
+        { label:'صافي بدون ضريبة', data:netVals, backgroundColor:'#1f8a7a', borderRadius:5, maxBarThickness:32 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'top', labels:{font:{family:'Tajawal', size:12}}},
+        tooltip:{ callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
+        datalabels:{
+          anchor:'end', align:'top', offset:2,
+          color:'#0e2b2b', font:{family:'Tajawal', size:11, weight:700},
+          formatter: v => v > 0 ? fmt(v) : ''
+        }
+      },
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{family:'JetBrains Mono', size:11}}},
+        y:{grid:{color:'rgba(14,43,43,0.06)'}, ticks:{callback: v => fmt(v)}}
       }
     }
   });
