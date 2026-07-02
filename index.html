@@ -942,6 +942,7 @@ function renderClinicTrend(){
       },
       scales:{
         x:{
+          offset:true,
           grid:{display:false},
           border:{display:false},
           ticks:{
@@ -1292,6 +1293,7 @@ function renderPharmaTrend(){
       scales:{
         x:{
           grid:{display:false}, border:{display:false},
+          offset:true,
           ticks:{ font:{family:'JetBrains Mono', size:11}, color:'#8a9b9b', padding:10 }
         },
         y:{
