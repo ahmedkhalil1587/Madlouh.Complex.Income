@@ -180,6 +180,7 @@
   td.num{font-family:'JetBrains Mono', monospace; font-size:12.5px;}
   td.doc-name{font-weight:700;}
   .clinic-tag{font-size:11px; color:#5b6f6f;}
+  td.date-cell{font-size:12px; color:var(--teal-700); font-weight:600; white-space:nowrap;}
   tfoot td{padding:13px 16px; font-weight:800; background:rgba(13,59,59,0.04); font-family:'JetBrains Mono', monospace; border-top:2px solid var(--teal-500);}
   .table-scroll{overflow-x:auto;}
 
@@ -388,6 +389,7 @@
           <table id="clinicTable">
             <thead>
               <tr>
+                <th data-key="date">التاريخ <span class="arrow"></span></th>
                 <th data-key="doctor">الطبيب <span class="arrow"></span></th>
                 <th data-key="clinic">العيادة <span class="arrow"></span></th>
                 <th data-key="cashNoVat">نقدي بدون ضريبة <span class="arrow"></span></th>
@@ -400,6 +402,7 @@
             <tbody id="clinicTbody"></tbody>
             <tfoot>
               <tr>
+                <td></td>
                 <td>الإجمالي</td>
                 <td></td>
                 <td class="num" id="fClinicCashNoVat">0</td>
@@ -867,29 +870,50 @@ function renderClinicTrend(){
 
   if(clinicTrendChart) clinicTrendChart.destroy();
   clinicTrendChart = new Chart(document.getElementById('clinicTrendChart'), {
-    type:'bar',
+    type:'line',
     data:{
       labels,
       datasets:[
-        { label:'نقدي بدون ضريبة', data:cashVals, backgroundColor:'#1f8a7a', borderRadius:5, maxBarThickness:32 },
-        { label:'آجل (Credit)', data:creditVals, backgroundColor:'#c8932f', borderRadius:5, maxBarThickness:32 }
+        {
+          label:'نقدي بدون ضريبة',
+          data:cashVals,
+          borderColor:'#1f8a7a',
+          backgroundColor:'rgba(31,138,122,0.08)',
+          pointBackgroundColor:'#1f8a7a',
+          pointRadius:5, pointHoverRadius:7,
+          borderWidth:2.5, tension:0.3, fill:true
+        },
+        {
+          label:'آجل (Credit)',
+          data:creditVals,
+          borderColor:'#c8932f',
+          backgroundColor:'rgba(200,147,47,0.08)',
+          pointBackgroundColor:'#c8932f',
+          pointRadius:5, pointHoverRadius:7,
+          borderWidth:2.5, tension:0.3, fill:true
+        }
       ]
     },
     options:{
       responsive:true, maintainAspectRatio:false,
       plugins:{
-        legend:{position:'top', labels:{font:{family:'Tajawal', size:12}}},
-        tooltip:{ callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
+        legend:{position:'top', labels:{font:{family:'Tajawal', size:13}, padding:18}},
+        tooltip:{
+          mode:'index', intersect:false,
+          callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` }
+        },
         datalabels:{
-          anchor:'end', align:'top', offset:2,
-          color:'#0e2b2b', font:{family:'Tajawal', size:11, weight:700},
+          anchor:'top', align:'top', offset:4,
+          color: ctx => ctx.datasetIndex === 0 ? '#1f8a7a' : '#c8932f',
+          font:{family:'Tajawal', size:11, weight:700},
           formatter: v => v > 0 ? fmt(v) : ''
         }
       },
       scales:{
         x:{grid:{display:false}, ticks:{font:{family:'JetBrains Mono', size:11}}},
-        y:{grid:{color:'rgba(14,43,43,0.06)'}, ticks:{callback: v => fmt(v)}}
-      }
+        y:{grid:{color:'rgba(14,43,43,0.06)'}, ticks:{callback: v => fmt(v)}, beginAtZero:true}
+      },
+      interaction:{ mode:'index', intersect:false }
     }
   });
 }
@@ -912,6 +936,7 @@ function drawClinicTable(){
     const pct = grandTotal ? (r.total/grandTotal*100).toFixed(1) : '0.0';
     return `
     <tr>
+      <td class="num date-cell">${r.date || '—'}</td>
       <td class="doc-name">${r.doctor}</td>
       <td class="clinic-tag">${r.clinic}</td>
       <td class="num">${fmt(r.cashNoVat)}</td>
@@ -925,7 +950,7 @@ function drawClinicTable(){
         </div>
       </td>
     </tr>
-  `;}).join('') || '<tr><td colspan="7" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>';
+  `;}).join('') || '<tr><td colspan="8" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>';
 }
 
 document.getElementById('clinicSearch').addEventListener('input', drawClinicTable);
@@ -1160,29 +1185,50 @@ function renderPharmaTrend(){
 
   if(pharmaTrendChart) pharmaTrendChart.destroy();
   pharmaTrendChart = new Chart(document.getElementById('pharmaTrendChart'), {
-    type:'bar',
+    type:'line',
     data:{
       labels,
       datasets:[
-        { label:'نقدي', data:cashVals, backgroundColor:'#c8932f', borderRadius:5, maxBarThickness:32 },
-        { label:'صافي بدون ضريبة', data:netVals, backgroundColor:'#1f8a7a', borderRadius:5, maxBarThickness:32 }
+        {
+          label:'نقدي',
+          data:cashVals,
+          borderColor:'#c8932f',
+          backgroundColor:'rgba(200,147,47,0.08)',
+          pointBackgroundColor:'#c8932f',
+          pointRadius:5, pointHoverRadius:7,
+          borderWidth:2.5, tension:0.3, fill:true
+        },
+        {
+          label:'صافي بدون ضريبة',
+          data:netVals,
+          borderColor:'#1f8a7a',
+          backgroundColor:'rgba(31,138,122,0.08)',
+          pointBackgroundColor:'#1f8a7a',
+          pointRadius:5, pointHoverRadius:7,
+          borderWidth:2.5, tension:0.3, fill:true
+        }
       ]
     },
     options:{
       responsive:true, maintainAspectRatio:false,
       plugins:{
-        legend:{position:'top', labels:{font:{family:'Tajawal', size:12}}},
-        tooltip:{ callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
+        legend:{position:'top', labels:{font:{family:'Tajawal', size:13}, padding:18}},
+        tooltip:{
+          mode:'index', intersect:false,
+          callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` }
+        },
         datalabels:{
-          anchor:'end', align:'top', offset:2,
-          color:'#0e2b2b', font:{family:'Tajawal', size:11, weight:700},
+          anchor:'top', align:'top', offset:4,
+          color: ctx => ctx.datasetIndex === 0 ? '#c8932f' : '#1f8a7a',
+          font:{family:'Tajawal', size:11, weight:700},
           formatter: v => v > 0 ? fmt(v) : ''
         }
       },
       scales:{
         x:{grid:{display:false}, ticks:{font:{family:'JetBrains Mono', size:11}}},
-        y:{grid:{color:'rgba(14,43,43,0.06)'}, ticks:{callback: v => fmt(v)}}
-      }
+        y:{grid:{color:'rgba(14,43,43,0.06)'}, ticks:{callback: v => fmt(v)}, beginAtZero:true}
+      },
+      interaction:{ mode:'index', intersect:false }
     }
   });
 }
