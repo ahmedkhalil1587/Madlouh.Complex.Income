@@ -316,6 +316,7 @@
   <div class="tabs">
     <button class="tab-btn active" data-tab="clinicPanel" id="tabClinicBtn">📋 إيراد العيادات</button>
     <button class="tab-btn" data-tab="pharmaPanel" id="tabPharmaBtn">💊 إيراد الصيدلية</button>
+    <button class="tab-btn" data-tab="combinedPanel" id="tabCombinedBtn">🔗 التقرير الموحد</button>
   </div>
 
   <!-- CLINIC PANEL -->
@@ -506,6 +507,90 @@
                 <td class="num" id="fPharmaCash">0</td>
                 <td class="num" id="fPharmaCredit">0</td>
                 <td class="num" id="fPharmaNetNoVat">0</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMBINED PANEL -->
+  <section class="panel" id="combinedPanel">
+    <div id="combinedEmpty" class="empty-state">
+      <div class="big">🔗</div>
+      <h2>يحتاج بيانات الملفين</h2>
+      <p>ارفع أو حمّل بيانات العيادات والصيدلية أولاً لعرض التقرير الموحد.</p>
+    </div>
+
+    <div id="combinedContent" style="display:none;">
+      <div class="date-filter-bar">
+        <span class="df-label">📅 فلتر بالتاريخ</span>
+        <input type="date" id="combinedDateFrom">
+        <span class="df-sep">←</span>
+        <input type="date" id="combinedDateTo">
+        <button class="df-clear" id="combinedDateClear">كل التواريخ</button>
+        <span class="df-result" id="combinedDateResult"></span>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi ink">
+          <div class="label">إجمالي النقدي بدون ضريبة</div>
+          <div class="value mono" id="kCombCash">0</div>
+          <div class="sub">عيادات + صيدلية</div>
+        </div>
+        <div class="kpi gold">
+          <div class="label">إجمالي الآجل بدون ضريبة</div>
+          <div class="value mono" id="kCombCredit">0</div>
+          <div class="sub">عيادات + صيدلية</div>
+        </div>
+        <div class="kpi">
+          <div class="label">إجمالي الإيراد بدون ضريبة</div>
+          <div class="value mono" id="kCombTotal">0</div>
+          <div class="sub">الإجمالي الكلي</div>
+        </div>
+        <div class="kpi rose">
+          <div class="label">عدد الأطباء النشطين</div>
+          <div class="value mono" id="kCombDoctors">0</div>
+          <div class="sub">مدرجون في التقرير</div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h3>التقرير الموحد — إيراد كل طبيب (عيادة + صيدلية)</h3>
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="combinedSearch" placeholder="ابحث باسم الطبيب...">
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="combinedTable">
+            <thead>
+              <tr>
+                <th data-key="date">التاريخ <span class="arrow"></span></th>
+                <th data-key="doctor">الطبيب <span class="arrow"></span></th>
+                <th data-key="clinicCash">نقدي عيادة (بدون ضريبة) <span class="arrow"></span></th>
+                <th data-key="pharmaCash">نقدي صيدلية <span class="arrow"></span></th>
+                <th data-key="totalCash">إيراد نقدي بدون ضريبة <span class="arrow"></span></th>
+                <th data-key="clinicCredit">آجل عيادة <span class="arrow"></span></th>
+                <th data-key="pharmaCredit">آجل صيدلية <span class="arrow"></span></th>
+                <th data-key="totalCredit">إيراد آجل بدون ضريبة <span class="arrow"></span></th>
+                <th data-key="grandTotal">إجمالي الإيراد بدون ضريبة <span class="arrow"></span></th>
+              </tr>
+            </thead>
+            <tbody id="combinedTbody"></tbody>
+            <tfoot>
+              <tr>
+                <td></td>
+                <td>الإجمالي</td>
+                <td class="num" id="fCombClinicCash">0</td>
+                <td class="num" id="fCombPharmaCash">0</td>
+                <td class="num" id="fCombTotalCash">0</td>
+                <td class="num" id="fCombClinicCredit">0</td>
+                <td class="num" id="fCombPharmaCredit">0</td>
+                <td class="num" id="fCombTotalCredit">0</td>
+                <td class="num" id="fCombGrandTotal">0</td>
               </tr>
             </tfoot>
           </table>
@@ -717,6 +802,7 @@ function processClinicRows(rows){
   document.getElementById('clinicEmpty').style.display='none';
   document.getElementById('clinicContent').style.display='block';
   renderClinic();
+  if(typeof renderCombined === 'function') renderCombined();
 }
 
 document.getElementById('clinicFile').addEventListener('change', e=>{
@@ -1089,6 +1175,7 @@ function processPharmaRows(rows){
   document.getElementById('pharmaEmpty').style.display='none';
   document.getElementById('pharmaContent').style.display='block';
   renderPharma();
+  if(typeof renderCombined === 'function') renderCombined();
 }
 
 document.getElementById('pharmaFile').addEventListener('change', e=>{
@@ -1383,6 +1470,134 @@ document.getElementById('pharmaDateClear').addEventListener('click', ()=>{
   pharmaFilter = {from:'', to:''};
   document.getElementById('pharmaDateResult').textContent = '';
   renderPharma();
+});
+
+// ================= COMBINED =================
+let combinedFilter = {from:'', to:''};
+let combinedSort = {key:'grandTotal', dir:'desc'};
+
+function buildCombinedData(){
+  const clinicFiltered = filterByDate(clinicData, combinedFilter);
+  const pharmaFiltered = filterByDate(pharmaData, combinedFilter);
+  const map = {};
+
+  clinicFiltered.forEach(r => {
+    const date = toISO(r.date) || '—';
+    const key = `${date}||${r.doctor.trim()}`;
+    if(!map[key]) map[key] = {date, doctor:r.doctor, clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0};
+    map[key].clinicCash   += r.cashNoVat;
+    map[key].clinicCredit += r.credit;
+  });
+
+  pharmaFiltered.forEach(r => {
+    const date = toISO(r.date) || '—';
+    // Match doctor — skip "مبيعات الصيدلية المباشرة" as it has no clinic counterpart
+    const docKey = r.doctor === 'مبيعات الصيدلية المباشرة (بدون طبيب)' ? `${date}||${r.doctor}` : `${date}||${r.doctor.trim()}`;
+    if(!map[docKey]) map[docKey] = {date, doctor:r.doctor, clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0};
+    map[docKey].pharmaCash   += r.cash;
+    map[docKey].pharmaCredit += r.credit;
+  });
+
+  return Object.values(map).map(r => ({
+    ...r,
+    totalCash:   r.clinicCash + r.pharmaCash,
+    totalCredit: r.clinicCredit + r.pharmaCredit,
+    grandTotal:  r.clinicCash + r.pharmaCash + r.clinicCredit + r.pharmaCredit,
+  }));
+}
+
+function renderCombined(){
+  const hasData = clinicData.length > 0 || pharmaData.length > 0;
+  document.getElementById('combinedEmpty').style.display = hasData ? 'none' : '';
+  document.getElementById('combinedContent').style.display = hasData ? 'block' : 'none';
+  if(!hasData) return;
+
+  const data = buildCombinedData();
+  const totalCash    = data.reduce((s,r)=>s+r.totalCash,   0);
+  const totalCredit  = data.reduce((s,r)=>s+r.totalCredit, 0);
+  const grandTotal   = data.reduce((s,r)=>s+r.grandTotal,  0);
+  const doctors      = new Set(data.map(r=>r.doctor)).size;
+
+  document.getElementById('kCombCash').textContent    = fmt(totalCash);
+  document.getElementById('kCombCredit').textContent  = fmt(totalCredit);
+  document.getElementById('kCombTotal').textContent   = fmt(grandTotal);
+  document.getElementById('kCombDoctors').textContent = doctors;
+
+  const count = data.length;
+  document.getElementById('combinedDateResult').textContent =
+    (combinedFilter.from || combinedFilter.to) ? `${count} سجل` : '';
+
+  drawCombinedTable(data);
+}
+
+function drawCombinedTable(data){
+  const search = document.getElementById('combinedSearch').value.trim().toLowerCase();
+  let rows = data.filter(r => r.doctor.toLowerCase().includes(search));
+  rows.sort((a,b)=>{
+    let va=a[combinedSort.key], vb=b[combinedSort.key];
+    if(typeof va==='string') return combinedSort.dir==='asc' ? va.localeCompare(vb,'ar') : vb.localeCompare(va,'ar');
+    return combinedSort.dir==='asc' ? va-vb : vb-va;
+  });
+
+  // Footer totals
+  const fClinCash    = rows.reduce((s,r)=>s+r.clinicCash,   0);
+  const fPharmaCash  = rows.reduce((s,r)=>s+r.pharmaCash,   0);
+  const fTotalCash   = rows.reduce((s,r)=>s+r.totalCash,    0);
+  const fClinCredit  = rows.reduce((s,r)=>s+r.clinicCredit, 0);
+  const fPharCredit  = rows.reduce((s,r)=>s+r.pharmaCredit, 0);
+  const fTotCredit   = rows.reduce((s,r)=>s+r.totalCredit,  0);
+  const fGrand       = rows.reduce((s,r)=>s+r.grandTotal,   0);
+
+  document.getElementById('fCombClinicCash').textContent   = fmt(fClinCash);
+  document.getElementById('fCombPharmaCash').textContent   = fmt(fPharmaCash);
+  document.getElementById('fCombTotalCash').textContent    = fmt(fTotalCash);
+  document.getElementById('fCombClinicCredit').textContent = fmt(fClinCredit);
+  document.getElementById('fCombPharmaCredit').textContent = fmt(fPharCredit);
+  document.getElementById('fCombTotalCredit').textContent  = fmt(fTotCredit);
+  document.getElementById('fCombGrandTotal').textContent   = fmt(fGrand);
+
+  document.getElementById('combinedTbody').innerHTML = rows.map(r => `
+    <tr>
+      <td class="num date-cell">${r.date}</td>
+      <td class="doc-name">${r.doctor}</td>
+      <td class="num">${fmt(r.clinicCash)}</td>
+      <td class="num">${fmt(r.pharmaCash)}</td>
+      <td class="num" style="font-weight:800; color:var(--teal-900);">${fmt(r.totalCash)}</td>
+      <td class="num">${fmt(r.clinicCredit)}</td>
+      <td class="num">${fmt(r.pharmaCredit)}</td>
+      <td class="num" style="font-weight:800; color:var(--gold);">${fmt(r.totalCredit)}</td>
+      <td class="num" style="font-weight:900; color:var(--teal-700); font-size:13px;">${fmt(r.grandTotal)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="9" style="text-align:center;padding:30px;color:#8a9b9b;">لا توجد نتائج</td></tr>';
+}
+
+document.getElementById('combinedSearch').addEventListener('input', ()=>{
+  drawCombinedTable(buildCombinedData());
+});
+document.querySelectorAll('#combinedTable thead th[data-key]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.key;
+    combinedSort.dir = (combinedSort.key===key && combinedSort.dir==='desc') ? 'asc' : 'desc';
+    combinedSort.key = key;
+    document.querySelectorAll('#combinedTable thead .arrow').forEach(a=>a.textContent='');
+    th.querySelector('.arrow').textContent = combinedSort.dir==='asc' ? '▲' : '▼';
+    drawCombinedTable(buildCombinedData());
+  });
+});
+
+function applyCombinedDateFilter(){
+  combinedFilter.from = document.getElementById('combinedDateFrom').value;
+  combinedFilter.to   = document.getElementById('combinedDateTo').value;
+  renderCombined();
+}
+document.getElementById('combinedDateFrom').addEventListener('change', applyCombinedDateFilter);
+document.getElementById('combinedDateTo').addEventListener('change', applyCombinedDateFilter);
+document.getElementById('combinedDateClear').addEventListener('click', ()=>{
+  document.getElementById('combinedDateFrom').value = '';
+  document.getElementById('combinedDateTo').value   = '';
+  combinedFilter = {from:'', to:''};
+  document.getElementById('combinedDateResult').textContent = '';
+  renderCombined();
 });
 </script>
 </body>
