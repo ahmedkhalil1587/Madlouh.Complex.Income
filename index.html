@@ -393,6 +393,7 @@
                 <th data-key="date">التاريخ <span class="arrow"></span></th>
                 <th data-key="doctor">الطبيب <span class="arrow"></span></th>
                 <th data-key="clinic">العيادة <span class="arrow"></span></th>
+                <th data-key="patients">عدد المرضى <span class="arrow"></span></th>
                 <th data-key="cashNoVat">نقدي بدون ضريبة <span class="arrow"></span></th>
                 <th data-key="cashVat">نقدي شامل الضريبة <span class="arrow"></span></th>
                 <th data-key="credit">آجل <span class="arrow"></span></th>
@@ -406,6 +407,7 @@
                 <td></td>
                 <td>الإجمالي</td>
                 <td></td>
+                <td class="num" id="fClinicPatients">0</td>
                 <td class="num" id="fClinicCashNoVat">0</td>
                 <td class="num" id="fClinicCashVat">0</td>
                 <td class="num" id="fClinicCredit">0</td>
@@ -570,6 +572,7 @@
               <tr>
                 <th data-key="date">التاريخ <span class="arrow"></span></th>
                 <th data-key="doctor">الطبيب <span class="arrow"></span></th>
+                <th data-key="patients">عدد المرضى <span class="arrow"></span></th>
                 <th data-key="clinicCash">نقدي عيادة (بدون ضريبة) <span class="arrow"></span></th>
                 <th data-key="pharmaCash">نقدي صيدلية <span class="arrow"></span></th>
                 <th data-key="totalCash">إيراد نقدي بدون ضريبة <span class="arrow"></span></th>
@@ -584,6 +587,7 @@
               <tr>
                 <td></td>
                 <td>الإجمالي</td>
+                <td class="num" id="fCombPatients">0</td>
                 <td class="num" id="fCombClinicCash">0</td>
                 <td class="num" id="fCombPharmaCash">0</td>
                 <td class="num" id="fCombTotalCash">0</td>
@@ -780,6 +784,7 @@ function processClinicRows(rows){
   const kCashVat = findKey(rows[0], ['Cash income with vat']);
   const kCredit = findKey(rows[0], ['credit']);
   const kDate = findKey(rows[0], ['Date','date','التاريخ','DATE','تاريخ']);
+  const kPatients = findKey(rows[0], ['Patient No','patient no','Patients','patients','Patient Count']);
 
   clinicData = rows
     .filter(r => r[kDoctor] && String(r[kDoctor]).trim() !== '')
@@ -789,6 +794,7 @@ function processClinicRows(rows){
       cashNoVat: parseNum(r[kCashNoVat]),
       cashVat: parseNum(r[kCashVat]),
       credit: parseNum(r[kCredit]),
+      patients: kPatients ? (parseNum(r[kPatients])||0) : 0,
       date: kDate ? r[kDate] : '',
     }))
     .map(r => ({...r, total: r.cashVat + r.credit}));
@@ -1074,6 +1080,7 @@ function drawClinicTable(){
   const grandTotal = filtered.reduce((s,r)=>s+r.total,0);
 
   // Footer = sum of visible (search-filtered) rows only
+  document.getElementById('fClinicPatients').textContent  = rows.reduce((s,r)=>s+(r.patients||0),0).toLocaleString();
   document.getElementById('fClinicCashNoVat').textContent = fmt(rows.reduce((s,r)=>s+r.cashNoVat,0));
   document.getElementById('fClinicCashVat').textContent   = fmt(rows.reduce((s,r)=>s+r.cashVat,0));
   document.getElementById('fClinicCredit').textContent    = fmt(rows.reduce((s,r)=>s+r.credit,0));
@@ -1087,6 +1094,7 @@ function drawClinicTable(){
       <td class="num date-cell">${toISO(r.date) || '—'}</td>
       <td class="doc-name">${r.doctor}</td>
       <td class="clinic-tag">${r.clinic}</td>
+      <td class="num">${r.patients > 0 ? r.patients.toLocaleString() : '—'}</td>
       <td class="num">${fmt(r.cashNoVat)}</td>
       <td class="num">${fmt(r.cashVat)}</td>
       <td class="num">${fmt(r.credit)}</td>
@@ -1098,7 +1106,7 @@ function drawClinicTable(){
         </div>
       </td>
     </tr>
-  `;}).join('') || '<tr><td colspan="8" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>';
+  `;}).join('') || '<tr><td colspan="9" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>';
 }
 
 document.getElementById('clinicSearch').addEventListener('input', drawClinicTable);
@@ -1489,16 +1497,17 @@ function buildCombinedData(){
   clinicFiltered.forEach(r => {
     const date = toISO(r.date) || '—';
     const key = `${date}||${r.doctor.trim()}`;
-    if(!map[key]) map[key] = {date, doctor:r.doctor, clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0};
+    if(!map[key]) map[key] = {date, doctor:r.doctor, clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0, patients:0};
     map[key].clinicCash   += r.cashNoVat;
     map[key].clinicCredit += r.credit;
+    map[key].patients     += (r.patients||0);
   });
 
   pharmaFiltered.forEach(r => {
     const date = toISO(r.date) || '—';
     // Match doctor — skip "مبيعات الصيدلية المباشرة" as it has no clinic counterpart
     const docKey = r.doctor === 'مبيعات الصيدلية المباشرة (بدون طبيب)' ? `${date}||${r.doctor}` : `${date}||${r.doctor.trim()}`;
-    if(!map[docKey]) map[docKey] = {date, doctor:r.doctor, clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0};
+    if(!map[docKey]) map[docKey] = {date, doctor:r.doctor, clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0, patients:0};
     map[docKey].pharmaCash   += r.cash;
     map[docKey].pharmaCredit += r.credit;
   });
@@ -1546,6 +1555,7 @@ function drawCombinedTable(data){
   });
 
   // Footer totals
+  const fPatients    = rows.reduce((s,r)=>s+(r.patients||0), 0);
   const fClinCash    = rows.reduce((s,r)=>s+r.clinicCash,   0);
   const fPharmaCash  = rows.reduce((s,r)=>s+r.pharmaCash,   0);
   const fTotalCash   = rows.reduce((s,r)=>s+r.totalCash,    0);
@@ -1554,6 +1564,7 @@ function drawCombinedTable(data){
   const fTotCredit   = rows.reduce((s,r)=>s+r.totalCredit,  0);
   const fGrand       = rows.reduce((s,r)=>s+r.grandTotal,   0);
 
+  document.getElementById('fCombPatients').textContent     = fPatients.toLocaleString();
   document.getElementById('fCombClinicCash').textContent   = fmt(fClinCash);
   document.getElementById('fCombPharmaCash').textContent   = fmt(fPharmaCash);
   document.getElementById('fCombTotalCash').textContent    = fmt(fTotalCash);
@@ -1566,6 +1577,7 @@ function drawCombinedTable(data){
     <tr>
       <td class="num date-cell">${r.date}</td>
       <td class="doc-name">${r.doctor}</td>
+      <td class="num">${r.patients > 0 ? r.patients.toLocaleString() : '—'}</td>
       <td class="num">${fmt(r.clinicCash)}</td>
       <td class="num">${fmt(r.pharmaCash)}</td>
       <td class="num" style="font-weight:800; color:var(--teal-900);">${fmt(r.totalCash)}</td>
@@ -1574,7 +1586,7 @@ function drawCombinedTable(data){
       <td class="num" style="font-weight:800; color:var(--gold);">${fmt(r.totalCredit)}</td>
       <td class="num" style="font-weight:900; color:var(--teal-700); font-size:13px;">${fmt(r.grandTotal)}</td>
     </tr>
-  `).join('') || '<tr><td colspan="9" style="text-align:center;padding:30px;color:#8a9b9b;">لا توجد نتائج</td></tr>';
+  `).join('') || '<tr><td colspan="10" style="text-align:center;padding:30px;color:#8a9b9b;">لا توجد نتائج</td></tr>';
 }
 
 document.getElementById('combinedSearch').addEventListener('input', ()=>{
