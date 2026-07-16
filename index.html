@@ -852,11 +852,6 @@ function renderClinicKpis(){
   document.getElementById('kClinicCashVat').textContent = fmt(totalCashVat);
   document.getElementById('kClinicCredit').textContent = fmt(totalCredit);
   document.getElementById('kClinicDoctors').textContent = data.length;
-
-  document.getElementById('fClinicCashNoVat').textContent = fmt(totalCashNoVat);
-  document.getElementById('fClinicCashVat').textContent = fmt(totalCashVat);
-  document.getElementById('fClinicCredit').textContent = fmt(totalCredit);
-  document.getElementById('fClinicTotal').textContent = fmt(totalAll);
 }
 
 function renderClinicCharts(){
@@ -1076,6 +1071,13 @@ function drawClinicTable(){
   });
   const maxTotal = Math.max(...filtered.map(r=>r.total), 1);
   const grandTotal = filtered.reduce((s,r)=>s+r.total,0);
+
+  // Footer = sum of visible (search-filtered) rows only
+  document.getElementById('fClinicCashNoVat').textContent = fmt(rows.reduce((s,r)=>s+r.cashNoVat,0));
+  document.getElementById('fClinicCashVat').textContent   = fmt(rows.reduce((s,r)=>s+r.cashVat,0));
+  document.getElementById('fClinicCredit').textContent    = fmt(rows.reduce((s,r)=>s+r.credit,0));
+  document.getElementById('fClinicTotal').textContent     = fmt(rows.reduce((s,r)=>s+r.total,0));
+
   const tbody = document.getElementById('clinicTbody');
   tbody.innerHTML = rows.map(r => {
     const pct = grandTotal ? (r.total/grandTotal*100).toFixed(1) : '0.0';
@@ -1228,10 +1230,6 @@ function renderPharmaKpis(){
   document.getElementById('kPharmaCredit').textContent = fmt(totalCredit);
   document.getElementById('kPharmaNetNoVat').textContent = fmt(totalNetNoVat);
   document.getElementById('kPharmaCount').textContent = data.length;
-
-  document.getElementById('fPharmaCash').textContent = fmt(totalCash);
-  document.getElementById('fPharmaCredit').textContent = fmt(totalCredit);
-  document.getElementById('fPharmaNetNoVat').textContent = fmt(totalNetNoVat);
 }
 
 function renderPharmaCharts(){
@@ -1428,6 +1426,11 @@ function drawPharmaTable(){
     if(typeof va === 'string') return pharmaSort.dir==='asc' ? va.localeCompare(vb,'ar') : vb.localeCompare(va,'ar');
     return pharmaSort.dir==='asc' ? va-vb : vb-va;
   });
+  // Footer = sum of visible (search-filtered) rows only
+  document.getElementById('fPharmaCash').textContent     = fmt(rows.reduce((s,r)=>s+r.cash,0));
+  document.getElementById('fPharmaCredit').textContent   = fmt(rows.reduce((s,r)=>s+r.credit,0));
+  document.getElementById('fPharmaNetNoVat').textContent = fmt(rows.reduce((s,r)=>s+r.netNoVat,0));
+
   const tbody = document.getElementById('pharmaTbody');
   tbody.innerHTML = rows.map(r => `
     <tr>
