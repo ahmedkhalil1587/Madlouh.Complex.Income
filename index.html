@@ -770,7 +770,7 @@ function setLinkStatus(elId, message, kind){
 // ================= CLINIC =================
 let clinicData = [];
 let clinicFilter = {from:'', to:''};
-let clinicSort = {key:'total', dir:'desc'};
+let clinicSort = {key:'date', dir:'desc'};
 let clinicBarChart, clinicDonutChart, clinicTrendChart;
 
 function processClinicRows(rows){
@@ -1065,8 +1065,9 @@ function drawClinicTable(){
     r.doctor.toLowerCase().includes(search) || r.clinic.toLowerCase().includes(search)
   );
   rows.sort((a,b)=>{
-    let va=a[clinicSort.key], vb=b[clinicSort.key];
-    if(typeof va === 'string') return clinicSort.dir==='asc' ? va.localeCompare(vb,'ar') : vb.localeCompare(va,'ar');
+    let va = clinicSort.key === 'date' ? (toISO(a.date)||'') : a[clinicSort.key];
+    let vb = clinicSort.key === 'date' ? (toISO(b.date)||'') : b[clinicSort.key];
+    if(typeof va === 'string') return clinicSort.dir==='asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     return clinicSort.dir==='asc' ? va-vb : vb-va;
   });
   const maxTotal = Math.max(...filtered.map(r=>r.total), 1);
@@ -1134,7 +1135,7 @@ document.getElementById('clinicDateClear').addEventListener('click', ()=>{
 // ================= PHARMACY =================
 let pharmaData = [];
 let pharmaFilter = {from:'', to:''};
-let pharmaSort = {key:'netNoVat', dir:'desc'};
+let pharmaSort = {key:'date', dir:'desc'};
 let pharmaBarChart, pharmaDonutChart, pharmaTrendChart;
 
 function processPharmaRows(rows){
@@ -1422,8 +1423,9 @@ function drawPharmaTable(){
     r.doctor.toLowerCase().includes(search) || r.clinic.toLowerCase().includes(search)
   );
   rows.sort((a,b)=>{
-    let va=a[pharmaSort.key], vb=b[pharmaSort.key];
-    if(typeof va === 'string') return pharmaSort.dir==='asc' ? va.localeCompare(vb,'ar') : vb.localeCompare(va,'ar');
+    let va = pharmaSort.key === 'date' ? (toISO(a.date)||'') : a[pharmaSort.key];
+    let vb = pharmaSort.key === 'date' ? (toISO(b.date)||'') : b[pharmaSort.key];
+    if(typeof va === 'string') return pharmaSort.dir==='asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     return pharmaSort.dir==='asc' ? va-vb : vb-va;
   });
   // Footer = sum of visible (search-filtered) rows only
@@ -1477,7 +1479,7 @@ document.getElementById('pharmaDateClear').addEventListener('click', ()=>{
 
 // ================= COMBINED =================
 let combinedFilter = {from:'', to:''};
-let combinedSort = {key:'grandTotal', dir:'desc'};
+let combinedSort = {key:'date', dir:'desc'};
 
 function buildCombinedData(){
   const clinicFiltered = filterByDate(clinicData, combinedFilter);
@@ -1537,8 +1539,9 @@ function drawCombinedTable(data){
   const search = document.getElementById('combinedSearch').value.trim().toLowerCase();
   let rows = data.filter(r => r.doctor.toLowerCase().includes(search));
   rows.sort((a,b)=>{
-    let va=a[combinedSort.key], vb=b[combinedSort.key];
-    if(typeof va==='string') return combinedSort.dir==='asc' ? va.localeCompare(vb,'ar') : vb.localeCompare(va,'ar');
+    let va = combinedSort.key === 'date' ? (a.date||'') : a[combinedSort.key];
+    let vb = combinedSort.key === 'date' ? (b.date||'') : b[combinedSort.key];
+    if(typeof va==='string') return combinedSort.dir==='asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     return combinedSort.dir==='asc' ? va-vb : vb-va;
   });
 
