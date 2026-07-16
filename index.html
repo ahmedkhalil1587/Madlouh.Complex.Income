@@ -563,7 +563,7 @@
           <h3>التقرير الموحد — إيراد كل طبيب (عيادة + صيدلية)</h3>
           <div class="search-box">
             <span>🔍</span>
-            <input type="text" id="combinedSearch" placeholder="ابحث باسم الطبيب...">
+            <input type="text" id="combinedSearch" placeholder="ابحث باسم الطبيب أو العيادة...">
           </div>
         </div>
         <div class="table-scroll">
@@ -572,6 +572,7 @@
               <tr>
                 <th data-key="date">التاريخ <span class="arrow"></span></th>
                 <th data-key="doctor">الطبيب <span class="arrow"></span></th>
+                <th data-key="clinic">العيادة / القسم <span class="arrow"></span></th>
                 <th data-key="patients">عدد المرضى <span class="arrow"></span></th>
                 <th data-key="clinicCash">نقدي عيادة (بدون ضريبة) <span class="arrow"></span></th>
                 <th data-key="pharmaCash">نقدي صيدلية <span class="arrow"></span></th>
@@ -587,6 +588,7 @@
               <tr>
                 <td></td>
                 <td>الإجمالي</td>
+                <td></td>
                 <td class="num" id="fCombPatients">0</td>
                 <td class="num" id="fCombClinicCash">0</td>
                 <td class="num" id="fCombPharmaCash">0</td>
@@ -1497,17 +1499,18 @@ function buildCombinedData(){
   clinicFiltered.forEach(r => {
     const date = toISO(r.date) || '—';
     const key = `${date}||${r.doctor.trim()}`;
-    if(!map[key]) map[key] = {date, doctor:r.doctor, clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0, patients:0};
+    if(!map[key]) map[key] = {date, doctor:r.doctor, clinic:r.clinic, clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0, patients:0};
     map[key].clinicCash   += r.cashNoVat;
     map[key].clinicCredit += r.credit;
     map[key].patients     += (r.patients||0);
+    if(r.clinic) map[key].clinic = r.clinic; // keep non-empty clinic name
   });
 
   pharmaFiltered.forEach(r => {
     const date = toISO(r.date) || '—';
     // Match doctor — skip "مبيعات الصيدلية المباشرة" as it has no clinic counterpart
     const docKey = r.doctor === 'مبيعات الصيدلية المباشرة (بدون طبيب)' ? `${date}||${r.doctor}` : `${date}||${r.doctor.trim()}`;
-    if(!map[docKey]) map[docKey] = {date, doctor:r.doctor, clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0, patients:0};
+    if(!map[docKey]) map[docKey] = {date, doctor:r.doctor, clinic:'', clinicCash:0, clinicCredit:0, pharmaCash:0, pharmaCredit:0, patients:0};
     map[docKey].pharmaCash   += r.cash;
     map[docKey].pharmaCredit += r.credit;
   });
@@ -1546,7 +1549,7 @@ function renderCombined(){
 
 function drawCombinedTable(data){
   const search = document.getElementById('combinedSearch').value.trim().toLowerCase();
-  let rows = data.filter(r => r.doctor.toLowerCase().includes(search));
+  let rows = data.filter(r => r.doctor.toLowerCase().includes(search) || (r.clinic||'').toLowerCase().includes(search));
   rows.sort((a,b)=>{
     let va = combinedSort.key === 'date' ? (a.date||'') : a[combinedSort.key];
     let vb = combinedSort.key === 'date' ? (b.date||'') : b[combinedSort.key];
@@ -1577,6 +1580,7 @@ function drawCombinedTable(data){
     <tr>
       <td class="num date-cell">${r.date}</td>
       <td class="doc-name">${r.doctor}</td>
+      <td class="clinic-tag">${r.clinic||'—'}</td>
       <td class="num">${r.patients > 0 ? r.patients.toLocaleString() : '—'}</td>
       <td class="num">${fmt(r.clinicCash)}</td>
       <td class="num">${fmt(r.pharmaCash)}</td>
@@ -1586,7 +1590,7 @@ function drawCombinedTable(data){
       <td class="num" style="font-weight:800; color:var(--gold);">${fmt(r.totalCredit)}</td>
       <td class="num" style="font-weight:900; color:var(--teal-700); font-size:13px;">${fmt(r.grandTotal)}</td>
     </tr>
-  `).join('') || '<tr><td colspan="10" style="text-align:center;padding:30px;color:#8a9b9b;">لا توجد نتائج</td></tr>';
+  `).join('') || '<tr><td colspan="11" style="text-align:center;padding:30px;color:#8a9b9b;">لا توجد نتائج</td></tr>';
 }
 
 document.getElementById('combinedSearch').addEventListener('input', ()=>{
