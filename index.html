@@ -242,6 +242,14 @@
   }
   .df-clear:hover{background:var(--teal-900); color:#fff; border-color:var(--teal-900);}
   .df-result{font-size:12px; color:var(--teal-700); font-weight:700; margin-inline-start:4px;}
+  .view-toggle{display:flex; gap:4px; background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:3px;}
+  .vt-btn{
+    cursor:pointer; font-family:inherit; font-size:12px; font-weight:700;
+    padding:6px 13px; border-radius:7px; border:none; background:transparent;
+    color:#5b6f6f; transition:.15s; white-space:nowrap;
+  }
+  .vt-btn.active{background:var(--teal-900); color:#fff;}
+  .vt-btn:not(.active):hover{background:var(--line);}
 </style>
 </head>
 <body>
@@ -381,6 +389,10 @@
       <div class="table-card">
         <div class="table-toolbar">
           <h3>تفصيل دخل كل طبيب</h3>
+          <div class="view-toggle">
+            <button class="vt-btn active" id="clinicViewDetailed">📋 تفصيلي</button>
+            <button class="vt-btn" id="clinicViewGrouped">📊 مجمع</button>
+          </div>
           <div class="search-box">
             <span>🔍</span>
             <input type="text" id="clinicSearch" placeholder="ابحث باسم الطبيب أو العيادة...">
@@ -561,6 +573,10 @@
       <div class="table-card">
         <div class="table-toolbar">
           <h3>التقرير الموحد — إيراد كل طبيب (عيادة + صيدلية)</h3>
+          <div class="view-toggle">
+            <button class="vt-btn active" id="combinedViewDetailed">📋 تفصيلي</button>
+            <button class="vt-btn" id="combinedViewGrouped">📊 مجمع</button>
+          </div>
           <div class="search-box">
             <span>🔍</span>
             <input type="text" id="combinedSearch" placeholder="ابحث باسم الطبيب أو العيادة...">
@@ -777,6 +793,7 @@ function setLinkStatus(elId, message, kind){
 let clinicData = [];
 let clinicFilter = {from:'', to:''};
 let clinicSort = {key:'date', dir:'desc'};
+let clinicViewMode = 'detailed'; // 'detailed' | 'grouped'
 let clinicBarChart, clinicDonutChart, clinicTrendChart;
 
 function processClinicRows(rows){
@@ -1072,6 +1089,22 @@ function drawClinicTable(){
   let rows = filtered.filter(r =>
     r.doctor.toLowerCase().includes(search) || r.clinic.toLowerCase().includes(search)
   );
+
+  // Grouped mode: aggregate per doctor+clinic across all dates
+  if(clinicViewMode === 'grouped'){
+    const gmap = {};
+    rows.forEach(r => {
+      const key = `${r.doctor}||${r.clinic}`;
+      if(!gmap[key]) gmap[key] = {doctor:r.doctor, clinic:r.clinic, cashNoVat:0, cashVat:0, credit:0, total:0, patients:0, date:''};
+      gmap[key].cashNoVat += r.cashNoVat;
+      gmap[key].cashVat   += r.cashVat;
+      gmap[key].credit    += r.credit;
+      gmap[key].total     += r.total;
+      gmap[key].patients  += (r.patients||0);
+    });
+    rows = Object.values(gmap);
+  }
+
   rows.sort((a,b)=>{
     let va = clinicSort.key === 'date' ? (toISO(a.date)||'') : a[clinicSort.key];
     let vb = clinicSort.key === 'date' ? (toISO(b.date)||'') : b[clinicSort.key];
@@ -1091,9 +1124,10 @@ function drawClinicTable(){
   const tbody = document.getElementById('clinicTbody');
   tbody.innerHTML = rows.map(r => {
     const pct = grandTotal ? (r.total/grandTotal*100).toFixed(1) : '0.0';
+    const isGrouped = clinicViewMode === 'grouped';
     return `
     <tr>
-      <td class="num date-cell">${toISO(r.date) || '—'}</td>
+      ${isGrouped ? '' : `<td class="num date-cell">${toISO(r.date) || '—'}</td>`}
       <td class="doc-name">${r.doctor}</td>
       <td class="clinic-tag">${r.clinic}</td>
       <td class="num">${r.patients > 0 ? r.patients.toLocaleString() : '—'}</td>
@@ -1108,10 +1142,32 @@ function drawClinicTable(){
         </div>
       </td>
     </tr>
-  `;}).join('') || '<tr><td colspan="9" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>';
+  `;}).join('') || `<tr><td colspan="${clinicViewMode==='grouped'?8:9}" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>`;
+
+  // Show/hide date header column
+  const clinicDateTh = document.querySelector('#clinicTable thead th[data-key="date"]');
+  const clinicDateFd = document.querySelector('#clinicTable tfoot td:first-child');
+  if(clinicDateTh) clinicDateTh.style.display = clinicViewMode === 'grouped' ? 'none' : '';
+  if(clinicDateFd) clinicDateFd.style.display = clinicViewMode === 'grouped' ? 'none' : '';
 }
 
 document.getElementById('clinicSearch').addEventListener('input', drawClinicTable);
+
+// Clinic view mode toggle
+document.getElementById('clinicViewDetailed').addEventListener('click', ()=>{
+  clinicViewMode = 'detailed';
+  clinicSort = {key:'date', dir:'desc'};
+  document.getElementById('clinicViewDetailed').classList.add('active');
+  document.getElementById('clinicViewGrouped').classList.remove('active');
+  drawClinicTable();
+});
+document.getElementById('clinicViewGrouped').addEventListener('click', ()=>{
+  clinicViewMode = 'grouped';
+  clinicSort = {key:'total', dir:'desc'};
+  document.getElementById('clinicViewGrouped').classList.add('active');
+  document.getElementById('clinicViewDetailed').classList.remove('active');
+  drawClinicTable();
+});
 document.querySelectorAll('#clinicTable thead th[data-key]').forEach(th=>{
   th.addEventListener('click', ()=>{
     const key = th.dataset.key;
@@ -1490,6 +1546,7 @@ document.getElementById('pharmaDateClear').addEventListener('click', ()=>{
 // ================= COMBINED =================
 let combinedFilter = {from:'', to:''};
 let combinedSort = {key:'date', dir:'desc'};
+let combinedViewMode = 'detailed'; // 'detailed' | 'grouped'
 
 function buildCombinedData(){
   const clinicFiltered = filterByDate(clinicData, combinedFilter);
@@ -1550,13 +1607,31 @@ function renderCombined(){
 function drawCombinedTable(data){
   const search = document.getElementById('combinedSearch').value.trim().toLowerCase();
   let rows = data.filter(r => r.doctor.toLowerCase().includes(search) || (r.clinic||'').toLowerCase().includes(search));
+
+  // Grouped mode: aggregate per doctor+clinic
+  if(combinedViewMode === 'grouped'){
+    const gmap = {};
+    rows.forEach(r => {
+      const key = `${r.doctor}||${r.clinic||''}`;
+      if(!gmap[key]) gmap[key] = {date:'', doctor:r.doctor, clinic:r.clinic||'', patients:0, clinicCash:0, pharmaCash:0, totalCash:0, clinicCredit:0, pharmaCredit:0, totalCredit:0, grandTotal:0};
+      gmap[key].patients     += (r.patients||0);
+      gmap[key].clinicCash   += r.clinicCash;
+      gmap[key].pharmaCash   += r.pharmaCash;
+      gmap[key].totalCash    += r.totalCash;
+      gmap[key].clinicCredit += r.clinicCredit;
+      gmap[key].pharmaCredit += r.pharmaCredit;
+      gmap[key].totalCredit  += r.totalCredit;
+      gmap[key].grandTotal   += r.grandTotal;
+    });
+    rows = Object.values(gmap);
+  }
+
   rows.sort((a,b)=>{
     let va = combinedSort.key === 'date' ? (a.date||'') : a[combinedSort.key];
     let vb = combinedSort.key === 'date' ? (b.date||'') : b[combinedSort.key];
     if(typeof va==='string') return combinedSort.dir==='asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     return combinedSort.dir==='asc' ? va-vb : vb-va;
   });
-
   // Footer totals
   const fPatients    = rows.reduce((s,r)=>s+(r.patients||0), 0);
   const fClinCash    = rows.reduce((s,r)=>s+r.clinicCash,   0);
@@ -1576,9 +1651,11 @@ function drawCombinedTable(data){
   document.getElementById('fCombTotalCredit').textContent  = fmt(fTotCredit);
   document.getElementById('fCombGrandTotal').textContent   = fmt(fGrand);
 
-  document.getElementById('combinedTbody').innerHTML = rows.map(r => `
+  document.getElementById('combinedTbody').innerHTML = rows.map(r => {
+    const isGrouped = combinedViewMode === 'grouped';
+    return `
     <tr>
-      <td class="num date-cell">${r.date}</td>
+      ${isGrouped ? '' : `<td class="num date-cell">${r.date||'—'}</td>`}
       <td class="doc-name">${r.doctor}</td>
       <td class="clinic-tag">${r.clinic||'—'}</td>
       <td class="num">${r.patients > 0 ? r.patients.toLocaleString() : '—'}</td>
@@ -1589,11 +1666,33 @@ function drawCombinedTable(data){
       <td class="num">${fmt(r.pharmaCredit)}</td>
       <td class="num" style="font-weight:800; color:var(--gold);">${fmt(r.totalCredit)}</td>
       <td class="num" style="font-weight:900; color:var(--teal-700); font-size:13px;">${fmt(r.grandTotal)}</td>
-    </tr>
-  `).join('') || '<tr><td colspan="11" style="text-align:center;padding:30px;color:#8a9b9b;">لا توجد نتائج</td></tr>';
+    </tr>`;
+  }).join('') || `<tr><td colspan="${combinedViewMode==='grouped'?10:11}" style="text-align:center;padding:30px;color:#8a9b9b;">لا توجد نتائج</td></tr>`;
+
+  // Show/hide date header column
+  const combDateTh = document.querySelector('#combinedTable thead th[data-key="date"]');
+  const combDateFd = document.querySelector('#combinedTable tfoot td:first-child');
+  if(combDateTh) combDateTh.style.display = combinedViewMode === 'grouped' ? 'none' : '';
+  if(combDateFd) combDateFd.style.display = combinedViewMode === 'grouped' ? 'none' : '';
 }
 
 document.getElementById('combinedSearch').addEventListener('input', ()=>{
+  drawCombinedTable(buildCombinedData());
+});
+
+// Combined view mode toggle
+document.getElementById('combinedViewDetailed').addEventListener('click', ()=>{
+  combinedViewMode = 'detailed';
+  combinedSort = {key:'date', dir:'desc'};
+  document.getElementById('combinedViewDetailed').classList.add('active');
+  document.getElementById('combinedViewGrouped').classList.remove('active');
+  drawCombinedTable(buildCombinedData());
+});
+document.getElementById('combinedViewGrouped').addEventListener('click', ()=>{
+  combinedViewMode = 'grouped';
+  combinedSort = {key:'grandTotal', dir:'desc'};
+  document.getElementById('combinedViewGrouped').classList.add('active');
+  document.getElementById('combinedViewDetailed').classList.remove('active');
   drawCombinedTable(buildCombinedData());
 });
 document.querySelectorAll('#combinedTable thead th[data-key]').forEach(th=>{
