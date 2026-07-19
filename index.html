@@ -495,6 +495,10 @@
       <div class="table-card">
         <div class="table-toolbar">
           <h3>تفصيل إيراد الصيدلية حسب العيادة</h3>
+          <div class="view-toggle">
+            <button class="vt-btn active" id="pharmaViewDetailed">📋 تفصيلي</button>
+            <button class="vt-btn" id="pharmaViewGrouped">📊 مجمع</button>
+          </div>
           <div class="search-box">
             <span>🔍</span>
             <input type="text" id="pharmaSearch" placeholder="ابحث باسم الطبيب أو العيادة...">
@@ -1202,6 +1206,7 @@ document.getElementById('clinicDateClear').addEventListener('click', ()=>{
 let pharmaData = [];
 let pharmaFilter = {from:'', to:''};
 let pharmaSort = {key:'date', dir:'desc'};
+let pharmaViewMode = 'detailed';
 let pharmaBarChart, pharmaDonutChart, pharmaTrendChart;
 
 function processPharmaRows(rows){
@@ -1488,31 +1493,70 @@ function drawPharmaTable(){
   let rows = filtered.filter(r =>
     r.doctor.toLowerCase().includes(search) || r.clinic.toLowerCase().includes(search)
   );
+
+  // Grouped mode: aggregate per doctor+clinic
+  if(pharmaViewMode === 'grouped'){
+    const gmap = {};
+    rows.forEach(r => {
+      const key = `${r.doctor}||${r.clinic}`;
+      if(!gmap[key]) gmap[key] = {doctor:r.doctor, clinic:r.clinic, cash:0, credit:0, netNoVat:0, date:''};
+      gmap[key].cash     += r.cash;
+      gmap[key].credit   += r.credit;
+      gmap[key].netNoVat += r.netNoVat;
+    });
+    rows = Object.values(gmap);
+  }
+
   rows.sort((a,b)=>{
     let va = pharmaSort.key === 'date' ? (toISO(a.date)||'') : a[pharmaSort.key];
     let vb = pharmaSort.key === 'date' ? (toISO(b.date)||'') : b[pharmaSort.key];
     if(typeof va === 'string') return pharmaSort.dir==='asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     return pharmaSort.dir==='asc' ? va-vb : vb-va;
   });
-  // Footer = sum of visible (search-filtered) rows only
+
+  // Footer = sum of visible rows only
   document.getElementById('fPharmaCash').textContent     = fmt(rows.reduce((s,r)=>s+r.cash,0));
   document.getElementById('fPharmaCredit').textContent   = fmt(rows.reduce((s,r)=>s+r.credit,0));
   document.getElementById('fPharmaNetNoVat').textContent = fmt(rows.reduce((s,r)=>s+r.netNoVat,0));
 
   const tbody = document.getElementById('pharmaTbody');
-  tbody.innerHTML = rows.map(r => `
+  tbody.innerHTML = rows.map(r => {
+    const isGrouped = pharmaViewMode === 'grouped';
+    return `
     <tr>
-      <td class="num date-cell">${toISO(r.date) || '—'}</td>
+      ${isGrouped ? '' : `<td class="num date-cell">${toISO(r.date) || '—'}</td>`}
       <td class="doc-name">${r.doctor}</td>
       <td class="clinic-tag">${r.clinic}</td>
       <td class="num">${fmt(r.cash)}</td>
       <td class="num">${fmt(r.credit)}</td>
       <td class="num">${fmt(r.netNoVat)}</td>
-    </tr>
-  `).join('') || '<tr><td colspan="6" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>';
+    </tr>`;
+  }).join('') || `<tr><td colspan="${pharmaViewMode==='grouped'?5:6}" style="text-align:center; padding:30px; color:#8a9b9b;">لا توجد نتائج</td></tr>`;
+
+  // Show/hide date header column
+  const pharmaDateTh = document.querySelector('#pharmaTable thead th[data-key="date"]');
+  const pharmaDateFd = document.querySelector('#pharmaTable tfoot td:first-child');
+  if(pharmaDateTh) pharmaDateTh.style.display = pharmaViewMode === 'grouped' ? 'none' : '';
+  if(pharmaDateFd) pharmaDateFd.style.display = pharmaViewMode === 'grouped' ? 'none' : '';
 }
 
 document.getElementById('pharmaSearch').addEventListener('input', drawPharmaTable);
+
+// Pharma view mode toggle
+document.getElementById('pharmaViewDetailed').addEventListener('click', ()=>{
+  pharmaViewMode = 'detailed';
+  pharmaSort = {key:'date', dir:'desc'};
+  document.getElementById('pharmaViewDetailed').classList.add('active');
+  document.getElementById('pharmaViewGrouped').classList.remove('active');
+  drawPharmaTable();
+});
+document.getElementById('pharmaViewGrouped').addEventListener('click', ()=>{
+  pharmaViewMode = 'grouped';
+  pharmaSort = {key:'netNoVat', dir:'desc'};
+  document.getElementById('pharmaViewGrouped').classList.add('active');
+  document.getElementById('pharmaViewDetailed').classList.remove('active');
+  drawPharmaTable();
+});
 document.querySelectorAll('#pharmaTable thead th[data-key]').forEach(th=>{
   th.addEventListener('click', ()=>{
     const key = th.dataset.key;
