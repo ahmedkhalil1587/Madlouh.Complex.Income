@@ -888,8 +888,14 @@ function renderClinicCharts(){
   const totalCashNoVat = data.reduce((s,r)=>s+r.cashNoVat,0);
   const totalCredit = data.reduce((s,r)=>s+r.credit,0);
 
-  // Bar chart - top 10 by cashNoVat
-  const top10 = [...data].sort((a,b)=>b.cashNoVat-a.cashNoVat).slice(0,10);
+  // Aggregate by doctor first, then take top 10
+  const byDoctor = {};
+  data.forEach(r=>{
+    if(!byDoctor[r.doctor]) byDoctor[r.doctor] = {doctor:r.doctor, cashNoVat:0, credit:0};
+    byDoctor[r.doctor].cashNoVat += r.cashNoVat;
+    byDoctor[r.doctor].credit    += r.credit;
+  });
+  const top10 = Object.values(byDoctor).sort((a,b)=>b.cashNoVat-a.cashNoVat).slice(0,10);
   if(clinicBarChart) clinicBarChart.destroy();
   clinicBarChart = new Chart(document.getElementById('clinicBarChart'), {
     type:'bar',
@@ -1308,7 +1314,15 @@ function renderPharmaCharts(){
   const data = filterByDate(pharmaData, pharmaFilter);
   const totalCash = data.reduce((s,r)=>s+r.cash,0);
   const totalCredit = data.reduce((s,r)=>s+r.credit,0);
-  const top10 = [...data].sort((a,b)=>b.netNoVat-a.netNoVat).slice(0,10);
+
+  // Aggregate by doctor first, then take top 10
+  const byDoctorP = {};
+  data.forEach(r=>{
+    if(!byDoctorP[r.doctor]) byDoctorP[r.doctor] = {doctor:r.doctor, netNoVat:0, cash:0};
+    byDoctorP[r.doctor].netNoVat += r.netNoVat;
+    byDoctorP[r.doctor].cash     += r.cash;
+  });
+  const top10 = Object.values(byDoctorP).sort((a,b)=>b.netNoVat-a.netNoVat).slice(0,10);
   if(pharmaBarChart) pharmaBarChart.destroy();
   pharmaBarChart = new Chart(document.getElementById('pharmaBarChart'), {
     type:'bar',
