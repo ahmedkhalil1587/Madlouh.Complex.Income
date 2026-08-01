@@ -1929,7 +1929,10 @@ function getTableDef(type){
         fmt(r.reduce((s,x)=>s+x.grandTotal,0))],
     }
   };
-  if(!showDate) defs[type].footer = (r)=> defs[type].footer(r).slice(1);
+  if(!showDate){
+    const origFooter = defs[type].footer;
+    defs[type].footer = (r) => origFooter(r).slice(1);
+  }
   return defs[type];
 }
 
