@@ -62,8 +62,9 @@
   main{padding:30px 6vw 70px;}
 
   .upload-row{
-    display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:34px;
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; margin-bottom:34px;
   }
+  @media (max-width:1100px){.upload-row{grid-template-columns:1fr 1fr;}}
   @media (max-width:820px){.upload-row{grid-template-columns:1fr;}}
   .uploader{
     background:var(--card); border:1px dashed var(--line); border-radius:var(--radius);
@@ -327,12 +328,31 @@
       </div>
       <div class="link-status" id="pharmaSheetStatus"></div>
     </div>
+
+    <div class="uploader" style="border-color:rgba(101,67,133,0.3);" id="detailedUploaderBox">
+      <div class="uploader-main">
+        <div class="icon" style="background:rgba(101,67,133,0.12); color:#65437a;">🔬</div>
+        <div class="meta">
+          <b>ملف الخدمات التفصيلي</b>
+          <span id="detailedFileName">لم يتم اختيار ملف بعد</span>
+        </div>
+        <label class="btn" for="detailedFile" style="background:#65437a;">استيراد Excel</label>
+        <input type="file" id="detailedFile" accept=".xlsx,.xls,.csv">
+      </div>
+      <div class="sync-row">
+        <span class="sync-badge" style="color:#65437a;">🔗 يدعم ربط Google Sheet</span>
+        <button class="link-btn" id="detailedSheetBtn" style="border-color:#65437a; color:#65437a;">تحديث</button>
+      </div>
+      <div class="link-status" id="detailedSheetStatus"></div>
+    </div>
   </div>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="clinicPanel" id="tabClinicBtn">📋 إيراد العيادات</button>
     <button class="tab-btn" data-tab="pharmaPanel" id="tabPharmaBtn">💊 إيراد الصيدلية</button>
     <button class="tab-btn" data-tab="combinedPanel" id="tabCombinedBtn">🔗 التقرير الموحد</button>
+    <button class="tab-btn" data-tab="clinicServicesPanel" id="tabClinicServicesBtn">🏥 خدمات العيادات</button>
+    <button class="tab-btn" data-tab="permitsPanel" id="tabPermitsBtn">🪪 الإقامات والرخص</button>
   </div>
 
   <!-- CLINIC PANEL -->
@@ -639,6 +659,134 @@
                 <td class="num" id="fCombGrandTotal">0</td>
               </tr>
             </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLINIC SERVICES PANEL -->
+  <section class="panel" id="clinicServicesPanel">
+    <div id="clinicServicesEmpty" class="empty-state">
+      <div class="big">🏥</div>
+      <h2>لا توجد بيانات بعد</h2>
+      <p>ارفع ملف الخدمات التفصيلي (cl_detailed) لعرض تحليل خدمات العيادات.</p>
+    </div>
+    <div id="clinicServicesContent" style="display:none;">
+      <div class="date-filter-bar">
+        <span class="df-label">📅 فلتر بالتاريخ</span>
+        <input type="date" id="csDateFrom"><span class="df-sep">←</span>
+        <input type="date" id="csDateTo">
+        <button class="df-clear" id="csDateClear">كل التواريخ</button>
+        <span class="df-result" id="csDateResult"></span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi ink"><div class="label">عدد المعاملات</div><div class="value mono" id="kCSCount">0</div><div class="sub">إجمالي الزيارات</div></div>
+        <div class="kpi"><div class="label">إجمالي النقدي</div><div class="value mono" id="kCSCash">0</div><div class="sub">Cash</div></div>
+        <div class="kpi gold"><div class="label">إجمالي الآجل</div><div class="value mono" id="kCSCredit">0</div><div class="sub">Credit</div></div>
+        <div class="kpi rose"><div class="label">صافي الإيراد</div><div class="value mono" id="kCSTotal">0</div><div class="sub">Total Net</div></div>
+      </div>
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h3>🏥 تفصيل خدمات العيادات</h3>
+          <div class="view-toggle">
+            <button class="vt-btn active" id="csViewDetailed">📋 تفصيلي</button>
+            <button class="vt-btn" id="csViewGrouped">📊 مجمع حسب الطبيب</button>
+          </div>
+          <div class="action-btns">
+            <button class="action-btn print-btn" onclick="printTable('clinicServices')">🖨️ طباعة</button>
+            <button class="action-btn excel-btn" onclick="exportExcel('clinicServices')">⬇️ Excel</button>
+          </div>
+          <div class="search-box"><span>🔍</span><input type="text" id="csSearch" placeholder="ابحث بالطبيب أو القسم أو المريض..."></div>
+        </div>
+        <div class="table-scroll">
+          <table id="csTable">
+            <thead><tr>
+              <th data-key="date">التاريخ <span class="arrow"></span></th>
+              <th data-key="patCd">رقم الملف <span class="arrow"></span></th>
+              <th data-key="patientName">اسم المريض <span class="arrow"></span></th>
+              <th data-key="doctor">الطبيب <span class="arrow"></span></th>
+              <th data-key="dept">العيادة <span class="arrow"></span></th>
+              <th data-key="nationality">الجنسية <span class="arrow"></span></th>
+              <th data-key="trType">نوع المعاملة <span class="arrow"></span></th>
+              <th data-key="cash">نقدي <span class="arrow"></span></th>
+              <th data-key="credit">آجل <span class="arrow"></span></th>
+              <th data-key="total">الإجمالي <span class="arrow"></span></th>
+            </tr></thead>
+            <tbody id="csTbody"></tbody>
+            <tfoot><tr>
+              <td></td><td></td><td>الإجمالي</td><td></td><td></td><td></td><td></td>
+              <td class="num" id="fCSCash">0</td>
+              <td class="num" id="fCSCredit">0</td>
+              <td class="num" id="fCSTotal">0</td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PERMITS PANEL -->
+  <section class="panel" id="permitsPanel">
+    <div id="permitsEmpty" class="empty-state">
+      <div class="big">🪪</div>
+      <h2>لا توجد بيانات بعد</h2>
+      <p>ارفع ملف الخدمات التفصيلي لعرض فحوصات الإقامات (IQ) والرخص (DL).</p>
+    </div>
+    <div id="permitsContent" style="display:none;">
+      <div class="date-filter-bar">
+        <span class="df-label">📅 فلتر بالتاريخ</span>
+        <input type="date" id="pmDateFrom"><span class="df-sep">←</span>
+        <input type="date" id="pmDateTo">
+        <button class="df-clear" id="pmDateClear">كل التواريخ</button>
+        <span class="df-result" id="pmDateResult"></span>
+        <span style="margin-inline-start:auto; display:flex; gap:6px;">
+          <button class="df-clear" id="pmFilterAll" style="background:var(--teal-900);color:#fff;border-color:var(--teal-900);">الكل</button>
+          <button class="df-clear" id="pmFilterIQ">إقامات (IQ)</button>
+          <button class="df-clear" id="pmFilterDL">رخص قيادة (DL)</button>
+        </span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi ink"><div class="label">عدد المعاملات</div><div class="value mono" id="kPMCount">0</div><div class="sub">إجمالي الفحوصات</div></div>
+        <div class="kpi"><div class="label">إجمالي النقدي</div><div class="value mono" id="kPMCash">0</div><div class="sub">Cash</div></div>
+        <div class="kpi gold"><div class="label">إجمالي الآجل</div><div class="value mono" id="kPMCredit">0</div><div class="sub">Credit</div></div>
+        <div class="kpi rose"><div class="label">صافي الإيراد</div><div class="value mono" id="kPMTotal">0</div><div class="sub">Total Net</div></div>
+      </div>
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h3>🪪 فحوصات الإقامات والرخص</h3>
+          <div class="view-toggle">
+            <button class="vt-btn active" id="pmViewDetailed">📋 تفصيلي</button>
+            <button class="vt-btn" id="pmViewGrouped">📊 مجمع حسب الطبيب</button>
+          </div>
+          <div class="action-btns">
+            <button class="action-btn print-btn" onclick="printTable('permits')">🖨️ طباعة</button>
+            <button class="action-btn excel-btn" onclick="exportExcel('permits')">⬇️ Excel</button>
+          </div>
+          <div class="search-box"><span>🔍</span><input type="text" id="pmSearch" placeholder="ابحث بالطبيب أو رقم الملف أو المريض..."></div>
+        </div>
+        <div class="table-scroll">
+          <table id="pmTable">
+            <thead><tr>
+              <th data-key="date">التاريخ <span class="arrow"></span></th>
+              <th data-key="patCd">رقم الملف <span class="arrow"></span></th>
+              <th data-key="type">النوع <span class="arrow"></span></th>
+              <th data-key="patientName">اسم المريض <span class="arrow"></span></th>
+              <th data-key="doctor">الطبيب <span class="arrow"></span></th>
+              <th data-key="dept">العيادة <span class="arrow"></span></th>
+              <th data-key="nationality">الجنسية <span class="arrow"></span></th>
+              <th data-key="trType">نوع المعاملة <span class="arrow"></span></th>
+              <th data-key="cash">نقدي <span class="arrow"></span></th>
+              <th data-key="credit">آجل <span class="arrow"></span></th>
+              <th data-key="total">الإجمالي <span class="arrow"></span></th>
+            </tr></thead>
+            <tbody id="pmTbody"></tbody>
+            <tfoot><tr>
+              <td></td><td></td><td></td><td>الإجمالي</td><td></td><td></td><td></td><td></td>
+              <td class="num" id="fPMCash">0</td>
+              <td class="num" id="fPMCredit">0</td>
+              <td class="num" id="fPMTotal">0</td>
+            </tr></tfoot>
           </table>
         </div>
       </div>
@@ -2033,7 +2181,353 @@ function exportExcel(type){
   ]);
   XLSX.utils.book_append_sheet(wb, metaWs, 'معلومات');
 
-  XLSX.writeFile(wb, `مدلوح_${type==='clinic'?'العيادات':type==='pharma'?'الصيدلية':'الموحد'}_${mode}_${period}.xlsx`);
+  XLSX.writeFile(wb, `مدلوح_${type==='clinic'?'العيادات':type==='pharma'?'الصيدلية':type==='clinicServices'?'خدمات_العيادات':type==='permits'?'الإقامات_والرخص':'الموحد'}_${mode}_${period}.xlsx`);
+}
+
+// =====================================================================
+// DETAILED DATA ENGINE (cl_detailed file)
+// =====================================================================
+let detailedData = [];        // all rows from detailed file
+let clinicServicesData = [];  // PAT_CD numeric only
+let permitsData = [];         // PAT_CD contains IQ or DL
+
+let csFilter = {from:'', to:''};
+let csSort   = {key:'date', dir:'desc'};
+let csViewMode = 'detailed';
+
+let pmFilter     = {from:'', to:''};
+let pmSort       = {key:'date', dir:'desc'};
+let pmViewMode   = 'detailed';
+let pmTypeFilter = 'all'; // 'all' | 'IQ' | 'DL'
+
+const DETAILED_SHEET_URL = ''; // set after Google Sheet publish
+
+function processDetailedRows(rows){
+  // Detect which sheet has the data (Command or Sheet1)
+  const header = Object.keys(rows[0]);
+  const kPat    = header.find(k => k.trim().toUpperCase() === 'PAT_CD') || 'PAT_CD';
+  const kDate   = header.find(k => k.trim().toUpperCase() === 'TR_DT')  || 'TR_DT';
+  const kDoctor = header.find(k => k.trim().toUpperCase() === 'DR_NM_AR') || 'DR_NM_AR';
+  const kDept   = header.find(k => k.trim().toUpperCase() === 'DPT_NM_AR') || 'DPT_NM_AR';
+  const kMainDept = header.find(k => k.trim().toUpperCase() === 'MDPT_NM_AR') || 'MDPT_NM_AR';
+  const kPatName = header.find(k => k.trim().toUpperCase() === 'PAT_NM_AR') || 'PAT_NM_AR';
+  const kNat    = header.find(k => k.trim().toUpperCase() === 'NATIONALITY_AR') || 'NATIONALITY_AR';
+  const kTrType = header.find(k => k.trim().toUpperCase() === 'TR_NM_AR') || 'TR_NM_AR';
+  const kCash   = header.find(k => k.trim().toUpperCase() === 'CASH')   || 'CASH';
+  const kCredit = header.find(k => k.trim().toUpperCase() === 'CRIDT')  || 'CRIDT';
+  const kTotal  = header.find(k => k.trim().toUpperCase() === 'TOTNET') || 'TOTNET';
+
+  detailedData = rows
+    .filter(r => r[kPat] !== undefined && r[kPat] !== null && r[kPat] !== '')
+    .map(r => {
+      const patCd = String(r[kPat]).trim();
+      const patUpper = patCd.toUpperCase();
+      let type = 'clinic';
+      if(patUpper.startsWith('IQ')) type = 'IQ';
+      else if(patUpper.startsWith('DL')) type = 'DL';
+      return {
+        patCd,
+        type,
+        date: r[kDate],
+        doctor: String(r[kDoctor]||'').trim(),
+        dept: String(r[kDept]||'').trim(),
+        mainDept: String(r[kMainDept]||'').trim(),
+        patientName: String(r[kPatName]||'').trim(),
+        nationality: String(r[kNat]||'').trim(),
+        trType: String(r[kTrType]||'').trim(),
+        cash:   parseNum(r[kCash]),
+        credit: parseNum(r[kCredit]),
+        total:  parseNum(r[kTotal]),
+      };
+    })
+    .filter(r => r.total !== 0 || r.cash !== 0 || r.credit !== 0);
+
+  clinicServicesData = detailedData.filter(r => r.type === 'clinic');
+  permitsData        = detailedData.filter(r => r.type === 'IQ' || r.type === 'DL');
+
+  document.getElementById('clinicServicesEmpty').style.display = 'none';
+  document.getElementById('clinicServicesContent').style.display = 'block';
+  document.getElementById('permitsEmpty').style.display = 'none';
+  document.getElementById('permitsContent').style.display = 'block';
+
+  renderClinicServices();
+  renderPermits();
+}
+
+// ---------- Upload ----------
+document.getElementById('detailedFile').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  document.getElementById('detailedFileName').textContent = file.name;
+  document.getElementById('detailedUploaderBox').classList.add('has-file');
+  // XLSX.js with {sheets: sheetName} reads specific sheet
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const data = new Uint8Array(ev.target.result);
+    const wb = XLSX.read(data, {type:'array', cellDates:true});
+    // Prefer "Command" sheet, fallback to first sheet
+    const sheetName = wb.SheetNames.includes('Command') ? 'Command' : wb.SheetNames[0];
+    const sheet = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+    processDetailedRows(rows);
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+document.getElementById('detailedSheetBtn').addEventListener('click', async ()=>{
+  if(!DETAILED_SHEET_URL){ alert('رابط Google Sheet للملف التفصيلي لم يُعيَّن بعد.'); return; }
+  const btn = document.getElementById('detailedSheetBtn');
+  btn.disabled=true; btn.textContent='...جاري';
+  try{
+    const rows = await fetchSheetRows(DETAILED_SHEET_URL);
+    processDetailedRows(rows);
+    document.getElementById('detailedFileName').textContent='متصل بـ Google Sheet';
+    document.getElementById('detailedSheetStatus').textContent='✓ تم تحديث البيانات';
+    document.getElementById('detailedSheetStatus').className='link-status ok';
+  }catch(e){
+    document.getElementById('detailedSheetStatus').textContent='✗ '+e.message;
+    document.getElementById('detailedSheetStatus').className='link-status err';
+  }finally{ btn.disabled=false; btn.textContent='تحديث'; }
+});
+
+// ---------- Helpers ----------
+function filterDetailed(data, filter, pmType='all'){
+  let d = filterByDate(data, filter);
+  if(pmType==='IQ') d = d.filter(r=>r.type==='IQ');
+  else if(pmType==='DL') d = d.filter(r=>r.type==='DL');
+  return d;
+}
+
+function groupDetailed(rows){
+  const g = {};
+  rows.forEach(r=>{
+    const k = `${r.doctor}||${r.dept}`;
+    if(!g[k]) g[k]={doctor:r.doctor, dept:r.dept, count:0, cash:0, credit:0, total:0, date:''};
+    g[k].count++; g[k].cash+=r.cash; g[k].credit+=r.credit; g[k].total+=r.total;
+  });
+  return Object.values(g);
+}
+
+function sortDetailed(rows, sortObj){
+  return [...rows].sort((a,b)=>{
+    let va = sortObj.key==='date'?(toISO(a.date)||''):(a[sortObj.key]??'');
+    let vb = sortObj.key==='date'?(toISO(b.date)||''):(b[sortObj.key]??'');
+    if(typeof va==='string') return sortObj.dir==='asc'?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));
+    return sortObj.dir==='asc'?va-vb:vb-va;
+  });
+}
+
+// =================== CLINIC SERVICES ===================
+function renderClinicServices(){
+  const data = filterDetailed(clinicServicesData, csFilter);
+  document.getElementById('kCSCount').textContent  = data.length.toLocaleString();
+  document.getElementById('kCSCash').textContent   = fmt(data.reduce((s,r)=>s+r.cash,0));
+  document.getElementById('kCSCredit').textContent = fmt(data.reduce((s,r)=>s+r.credit,0));
+  document.getElementById('kCSTotal').textContent  = fmt(data.reduce((s,r)=>s+r.total,0));
+  const count = data.length;
+  document.getElementById('csDateResult').textContent = (csFilter.from||csFilter.to)?`${count} معاملة`:'';
+  drawCSTable();
+}
+
+function getCSRows(){
+  const search = document.getElementById('csSearch').value.trim().toLowerCase();
+  let data = filterDetailed(clinicServicesData, csFilter);
+  let rows = data.filter(r=>
+    r.doctor.toLowerCase().includes(search)||
+    r.dept.toLowerCase().includes(search)||
+    r.patientName.toLowerCase().includes(search)||
+    r.patCd.includes(search)
+  );
+  if(csViewMode==='grouped') rows = groupDetailed(rows);
+  return sortDetailed(rows, csSort);
+}
+
+function drawCSTable(){
+  const rows = getCSRows();
+  const isG = csViewMode==='grouped';
+  document.getElementById('fCSCash').textContent   = fmt(rows.reduce((s,r)=>s+r.cash,0));
+  document.getElementById('fCSCredit').textContent = fmt(rows.reduce((s,r)=>s+r.credit,0));
+  document.getElementById('fCSTotal').textContent  = fmt(rows.reduce((s,r)=>s+r.total,0));
+
+  const thead = document.querySelector('#csTable thead tr');
+  if(thead){
+    thead.innerHTML = isG
+      ? `<th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="count">عدد المعاملات <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`
+      : `<th data-key="date">التاريخ <span class="arrow"></span></th><th data-key="patCd">رقم الملف <span class="arrow"></span></th><th data-key="patientName">اسم المريض <span class="arrow"></span></th><th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="nationality">الجنسية <span class="arrow"></span></th><th data-key="trType">النوع <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`;
+    attachSortListeners('#csTable', csSort, drawCSTable);
+  }
+  const cols = isG ? 6 : 10;
+  document.getElementById('csTbody').innerHTML = rows.map(r => isG
+    ? `<tr><td class="doc-name">${r.doctor}</td><td class="clinic-tag">${r.dept}</td><td class="num">${(r.count||0).toLocaleString()}</td><td class="num">${fmt(r.cash)}</td><td class="num">${fmt(r.credit)}</td><td class="num" style="font-weight:800">${fmt(r.total)}</td></tr>`
+    : `<tr><td class="num date-cell">${toISO(r.date)||'—'}</td><td class="num" style="font-size:11px">${r.patCd}</td><td>${r.patientName}</td><td class="doc-name">${r.doctor}</td><td class="clinic-tag">${r.dept}</td><td style="font-size:11px">${r.nationality}</td><td style="font-size:11px">${r.trType}</td><td class="num">${fmt(r.cash)}</td><td class="num">${fmt(r.credit)}</td><td class="num" style="font-weight:800">${fmt(r.total)}</td></tr>`
+  ).join('') || `<tr><td colspan="${cols}" style="text-align:center;padding:30px;color:#8a9b9b">لا توجد نتائج</td></tr>`;
+
+  // Sync footer colspan
+  const ftr = document.querySelector('#csTable tfoot tr');
+  if(ftr && isG){
+    ftr.innerHTML = `<td></td><td>الإجمالي</td><td></td><td class="num" id="fCSCash">0</td><td class="num" id="fCSCredit">0</td><td class="num" id="fCSTotal">0</td>`;
+    document.getElementById('fCSCash').textContent   = fmt(rows.reduce((s,r)=>s+r.cash,0));
+    document.getElementById('fCSCredit').textContent = fmt(rows.reduce((s,r)=>s+r.credit,0));
+    document.getElementById('fCSTotal').textContent  = fmt(rows.reduce((s,r)=>s+r.total,0));
+  } else if(ftr){
+    ftr.innerHTML = `<td></td><td></td><td>الإجمالي</td><td></td><td></td><td></td><td></td><td class="num" id="fCSCash">0</td><td class="num" id="fCSCredit">0</td><td class="num" id="fCSTotal">0</td>`;
+    document.getElementById('fCSCash').textContent   = fmt(rows.reduce((s,r)=>s+r.cash,0));
+    document.getElementById('fCSCredit').textContent = fmt(rows.reduce((s,r)=>s+r.credit,0));
+    document.getElementById('fCSTotal').textContent  = fmt(rows.reduce((s,r)=>s+r.total,0));
+  }
+}
+
+document.getElementById('csSearch').addEventListener('input', drawCSTable);
+document.getElementById('csDateFrom').addEventListener('change', ()=>{ csFilter.from=document.getElementById('csDateFrom').value; renderClinicServices(); });
+document.getElementById('csDateTo').addEventListener('change',   ()=>{ csFilter.to=document.getElementById('csDateTo').value;   renderClinicServices(); });
+document.getElementById('csDateClear').addEventListener('click', ()=>{
+  document.getElementById('csDateFrom').value=''; document.getElementById('csDateTo').value='';
+  csFilter={from:'',to:''}; document.getElementById('csDateResult').textContent=''; renderClinicServices();
+});
+document.getElementById('csViewDetailed').addEventListener('click',()=>{
+  csViewMode='detailed'; csSort={key:'date',dir:'desc'};
+  document.getElementById('csViewDetailed').classList.add('active');
+  document.getElementById('csViewGrouped').classList.remove('active');
+  drawCSTable();
+});
+document.getElementById('csViewGrouped').addEventListener('click',()=>{
+  csViewMode='grouped'; csSort={key:'total',dir:'desc'};
+  document.getElementById('csViewGrouped').classList.add('active');
+  document.getElementById('csViewDetailed').classList.remove('active');
+  drawCSTable();
+});
+
+// =================== PERMITS ===================
+function renderPermits(){
+  const data = filterDetailed(permitsData, pmFilter, pmTypeFilter);
+  document.getElementById('kPMCount').textContent  = data.length.toLocaleString();
+  document.getElementById('kPMCash').textContent   = fmt(data.reduce((s,r)=>s+r.cash,0));
+  document.getElementById('kPMCredit').textContent = fmt(data.reduce((s,r)=>s+r.credit,0));
+  document.getElementById('kPMTotal').textContent  = fmt(data.reduce((s,r)=>s+r.total,0));
+  document.getElementById('pmDateResult').textContent = (pmFilter.from||pmFilter.to)?`${data.length} معاملة`:'';
+  drawPMTable();
+}
+
+function getPMRows(){
+  const search = document.getElementById('pmSearch').value.trim().toLowerCase();
+  let data = filterDetailed(permitsData, pmFilter, pmTypeFilter);
+  let rows = data.filter(r=>
+    r.doctor.toLowerCase().includes(search)||
+    r.patCd.toLowerCase().includes(search)||
+    r.patientName.toLowerCase().includes(search)
+  );
+  if(pmViewMode==='grouped') rows = groupDetailed(rows);
+  return sortDetailed(rows, pmSort);
+}
+
+function drawPMTable(){
+  const rows = getPMRows();
+  const isG = pmViewMode==='grouped';
+  const thead = document.querySelector('#pmTable thead tr');
+  if(thead){
+    thead.innerHTML = isG
+      ? `<th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="count">عدد المعاملات <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`
+      : `<th data-key="date">التاريخ <span class="arrow"></span></th><th data-key="patCd">رقم الملف <span class="arrow"></span></th><th data-key="type">النوع <span class="arrow"></span></th><th data-key="patientName">اسم المريض <span class="arrow"></span></th><th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="nationality">الجنسية <span class="arrow"></span></th><th data-key="trType">المعاملة <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`;
+    attachSortListeners('#pmTable', pmSort, drawPMTable);
+  }
+  const cols = isG ? 6 : 11;
+  document.getElementById('pmTbody').innerHTML = rows.map(r => isG
+    ? `<tr><td class="doc-name">${r.doctor}</td><td class="clinic-tag">${r.dept}</td><td class="num">${(r.count||0).toLocaleString()}</td><td class="num">${fmt(r.cash)}</td><td class="num">${fmt(r.credit)}</td><td class="num" style="font-weight:800">${fmt(r.total)}</td></tr>`
+    : `<tr><td class="num date-cell">${toISO(r.date)||'—'}</td><td class="num" style="font-size:11px">${r.patCd}</td><td><span style="font-size:10px;padding:2px 7px;border-radius:9px;font-weight:700;background:${r.type==='IQ'?'rgba(31,138,122,0.15)':'rgba(200,147,47,0.18)'};color:${r.type==='IQ'?'var(--teal-700)':'#9a6c1f'}">${r.type}</span></td><td>${r.patientName}</td><td class="doc-name">${r.doctor}</td><td class="clinic-tag">${r.dept}</td><td style="font-size:11px">${r.nationality}</td><td style="font-size:11px">${r.trType}</td><td class="num">${fmt(r.cash)}</td><td class="num">${fmt(r.credit)}</td><td class="num" style="font-weight:800">${fmt(r.total)}</td></tr>`
+  ).join('') || `<tr><td colspan="${cols}" style="text-align:center;padding:30px;color:#8a9b9b">لا توجد نتائج</td></tr>`;
+
+  // Footer
+  const ftr = document.querySelector('#pmTable tfoot tr');
+  if(ftr){
+    const cashSum   = fmt(rows.reduce((s,r)=>s+r.cash,0));
+    const creditSum = fmt(rows.reduce((s,r)=>s+r.credit,0));
+    const totalSum  = fmt(rows.reduce((s,r)=>s+r.total,0));
+    ftr.innerHTML = isG
+      ? `<td></td><td>الإجمالي</td><td></td><td class="num">${cashSum}</td><td class="num">${creditSum}</td><td class="num">${totalSum}</td>`
+      : `<td></td><td></td><td></td><td>الإجمالي</td><td></td><td></td><td></td><td></td><td class="num">${cashSum}</td><td class="num">${creditSum}</td><td class="num">${totalSum}</td>`;
+  }
+}
+
+document.getElementById('pmSearch').addEventListener('input', drawPMTable);
+document.getElementById('pmDateFrom').addEventListener('change', ()=>{ pmFilter.from=document.getElementById('pmDateFrom').value; renderPermits(); });
+document.getElementById('pmDateTo').addEventListener('change',   ()=>{ pmFilter.to=document.getElementById('pmDateTo').value;   renderPermits(); });
+document.getElementById('pmDateClear').addEventListener('click', ()=>{
+  document.getElementById('pmDateFrom').value=''; document.getElementById('pmDateTo').value='';
+  pmFilter={from:'',to:''}; document.getElementById('pmDateResult').textContent=''; renderPermits();
+});
+['pmFilterAll','pmFilterIQ','pmFilterDL'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',()=>{
+    pmTypeFilter = id==='pmFilterAll'?'all':id==='pmFilterIQ'?'IQ':'DL';
+    ['pmFilterAll','pmFilterIQ','pmFilterDL'].forEach(bid=>{
+      const el = document.getElementById(bid);
+      el.style.background = bid===id?'var(--teal-900)':'';
+      el.style.color = bid===id?'#fff':'';
+      el.style.borderColor = bid===id?'var(--teal-900)':'';
+    });
+    renderPermits();
+  });
+});
+document.getElementById('pmViewDetailed').addEventListener('click',()=>{
+  pmViewMode='detailed'; pmSort={key:'date',dir:'desc'};
+  document.getElementById('pmViewDetailed').classList.add('active');
+  document.getElementById('pmViewGrouped').classList.remove('active');
+  drawPMTable();
+});
+document.getElementById('pmViewGrouped').addEventListener('click',()=>{
+  pmViewMode='grouped'; pmSort={key:'total',dir:'desc'};
+  document.getElementById('pmViewGrouped').classList.add('active');
+  document.getElementById('pmViewDetailed').classList.remove('active');
+  drawPMTable();
+});
+
+// ---------- Generic sort listener attachment ----------
+function attachSortListeners(tableSelector, sortObj, drawFn){
+  document.querySelectorAll(`${tableSelector} thead th[data-key]`).forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.key;
+      sortObj.dir = (sortObj.key===key && sortObj.dir==='desc') ? 'asc' : 'desc';
+      sortObj.key = key;
+      document.querySelectorAll(`${tableSelector} thead .arrow`).forEach(a=>a.textContent='');
+      th.querySelector('.arrow').textContent = sortObj.dir==='asc'?'▲':'▼';
+      drawFn();
+    });
+  });
+}
+
+// ---------- Extend getTableDef for new tables ----------
+const _origGetTableDef = getTableDef;
+function getTableDef(type){
+  if(type !== 'clinicServices' && type !== 'permits') return _origGetTableDef(type);
+  const isCS = type === 'clinicServices';
+  const viewMode = isCS ? csViewMode : pmViewMode;
+  const isGrouped = viewMode === 'grouped';
+  const rows = isCS ? getCSRows() : getPMRows();
+
+  if(isGrouped){
+    return {
+      title: isCS ? 'خدمات العيادات (مجمع)' : 'الإقامات والرخص (مجمع)',
+      cols:[
+        {h:'الطبيب',k:'doctor'},{h:'العيادة',k:'dept'},
+        {h:'عدد المعاملات',k:'count',fn:r=>(r.count||0)},
+        {h:'نقدي',k:'cash',fn:r=>r.cash},{h:'آجل',k:'credit',fn:r=>r.credit},{h:'الإجمالي',k:'total',fn:r=>r.total},
+      ],
+      getRows: ()=>rows,
+      footer: r=>[
+        'الإجمالي','',r.reduce((s,x)=>s+(x.count||0),0),
+        r.reduce((s,x)=>s+x.cash,0),r.reduce((s,x)=>s+x.credit,0),r.reduce((s,x)=>s+x.total,0)
+      ],
+    };
+  }
+  const baseCols = isCS
+    ? [{h:'التاريخ',k:'date',fn:r=>toISO(r.date)||'—'},{h:'رقم الملف',k:'patCd'},{h:'اسم المريض',k:'patientName'},{h:'الطبيب',k:'doctor'},{h:'العيادة',k:'dept'},{h:'الجنسية',k:'nationality'},{h:'نوع المعاملة',k:'trType'},{h:'نقدي',k:'cash',fn:r=>r.cash},{h:'آجل',k:'credit',fn:r=>r.credit},{h:'الإجمالي',k:'total',fn:r=>r.total}]
+    : [{h:'التاريخ',k:'date',fn:r=>toISO(r.date)||'—'},{h:'رقم الملف',k:'patCd'},{h:'النوع',k:'type'},{h:'اسم المريض',k:'patientName'},{h:'الطبيب',k:'doctor'},{h:'العيادة',k:'dept'},{h:'الجنسية',k:'nationality'},{h:'المعاملة',k:'trType'},{h:'نقدي',k:'cash',fn:r=>r.cash},{h:'آجل',k:'credit',fn:r=>r.credit},{h:'الإجمالي',k:'total',fn:r=>r.total}];
+  const n = baseCols.length;
+  return {
+    title: isCS ? 'خدمات العيادات (تفصيلي)' : 'الإقامات والرخص (تفصيلي)',
+    cols: baseCols,
+    getRows: ()=>rows,
+    footer: r=>[...Array(n-3).fill(''), 'الإجمالي', r.reduce((s,x)=>s+x.cash,0), r.reduce((s,x)=>s+x.credit,0), r.reduce((s,x)=>s+x.total,0)],
+  };
 }
 </script>
 </body>
