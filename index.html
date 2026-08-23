@@ -334,14 +334,14 @@
         <div class="icon" style="background:rgba(101,67,133,0.12); color:#65437a;">🔬</div>
         <div class="meta">
           <b>ملف الخدمات التفصيلي</b>
-          <span id="detailedFileName">لم يتم اختيار ملف بعد</span>
+          <span id="detailedFileName">جاري المزامنة التلقائية...</span>
         </div>
         <label class="btn" for="detailedFile" style="background:#65437a;">استيراد Excel</label>
         <input type="file" id="detailedFile" accept=".xlsx,.xls,.csv">
       </div>
       <div class="sync-row">
-        <span class="sync-badge" style="color:#65437a;">🔗 يدعم ربط Google Sheet</span>
-        <button class="link-btn" id="detailedSheetBtn" style="border-color:#65437a; color:#65437a;">تحديث</button>
+        <span class="sync-badge" style="color:#65437a;">🔄 مرتبط تلقائيًا بمصدر بيانات مباشر</span>
+        <button class="link-btn" id="detailedSheetBtn" style="border-color:#65437a; color:#65437a;">تحديث الآن</button>
       </div>
       <div class="link-status" id="detailedSheetStatus"></div>
     </div>
@@ -2200,7 +2200,7 @@ let pmSort       = {key:'date', dir:'desc'};
 let pmViewMode   = 'detailed';
 let pmTypeFilter = 'all'; // 'all' | 'IQ' | 'DL'
 
-const DETAILED_SHEET_URL = ''; // set after Google Sheet publish
+const DETAILED_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTCoSBN7NIZNdh_UEmqjOAPYtyhFVp9buIeYEUo2BBsjZOX-bFSdf2CVTFe-qeflY9oVpT86MRKX-DF/pub?gid=771696455&single=true&output=csv';
 
 function processDetailedRows(rows){
   // Detect which sheet has the data (Command or Sheet1)
@@ -2281,14 +2281,33 @@ document.getElementById('detailedSheetBtn').addEventListener('click', async ()=>
   try{
     const rows = await fetchSheetRows(DETAILED_SHEET_URL);
     processDetailedRows(rows);
-    document.getElementById('detailedFileName').textContent='متصل بـ Google Sheet';
+    document.getElementById('detailedFileName').textContent='تمت المزامنة التلقائية';
+    document.getElementById('detailedUploaderBox').classList.add('has-file');
     document.getElementById('detailedSheetStatus').textContent='✓ تم تحديث البيانات';
     document.getElementById('detailedSheetStatus').className='link-status ok';
   }catch(e){
+    document.getElementById('detailedFileName').textContent='تعذّرت المزامنة — استخدم الاستيراد اليدوي';
     document.getElementById('detailedSheetStatus').textContent='✗ '+e.message;
     document.getElementById('detailedSheetStatus').className='link-status err';
-  }finally{ btn.disabled=false; btn.textContent='تحديث'; }
+  }finally{ btn.disabled=false; btn.textContent='تحديث الآن'; }
 });
+
+async function loadDetailedFromSheet(){
+  const btn = document.getElementById('detailedSheetBtn');
+  btn.disabled=true; btn.textContent='...جاري التحديث';
+  setLinkStatus('detailedSheetStatus','جاري الاتصال بمصدر البيانات...','');
+  try{
+    const rows = await fetchSheetRows(DETAILED_SHEET_URL);
+    processDetailedRows(rows);
+    document.getElementById('detailedFileName').textContent='تمت المزامنة التلقائية';
+    document.getElementById('detailedUploaderBox').classList.add('has-file');
+    setLinkStatus('detailedSheetStatus','✓ تم تحديث البيانات بنجاح','ok');
+  }catch(e){
+    document.getElementById('detailedFileName').textContent='تعذّرت المزامنة — استخدم الاستيراد اليدوي';
+    setLinkStatus('detailedSheetStatus','✗ '+e.message,'err');
+  }finally{ btn.disabled=false; btn.textContent='تحديث الآن'; }
+}
+loadDetailedFromSheet();
 
 // ---------- Helpers ----------
 function filterDetailed(data, filter, pmType='all'){
