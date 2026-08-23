@@ -683,7 +683,7 @@
       <div class="kpi-grid">
         <div class="kpi ink"><div class="label">عدد المرضى</div><div class="value mono" id="kCSCount">0</div><div class="sub">مرضى فريدون</div></div>
         <div class="kpi"><div class="label">إجمالي النقدي</div><div class="value mono" id="kCSCash">0</div><div class="sub">Cash</div></div>
-        <div class="kpi gold"><div class="label">إجمالي الآجل</div><div class="value mono" id="kCSCredit">0</div><div class="sub">Credit</div></div>
+        <div class="kpi gold"><div class="label">تأمين / شركات</div><div class="value mono" id="kCSCredit">0</div><div class="sub">Credit</div></div>
         <div class="kpi rose"><div class="label">صافي الإيراد</div><div class="value mono" id="kCSTotal">0</div><div class="sub">Total Net</div></div>
       </div>
       <div class="table-card">
@@ -710,7 +710,7 @@
               <th data-key="nationality">الجنسية <span class="arrow"></span></th>
               <th data-key="trType">نوع المعاملة <span class="arrow"></span></th>
               <th data-key="cash">نقدي <span class="arrow"></span></th>
-              <th data-key="credit">آجل <span class="arrow"></span></th>
+              <th data-key="credit">تأمين / شركات <span class="arrow"></span></th>
               <th data-key="total">الإجمالي <span class="arrow"></span></th>
             </tr></thead>
             <tbody id="csTbody"></tbody>
@@ -749,7 +749,7 @@
       <div class="kpi-grid">
         <div class="kpi ink"><div class="label">عدد المرضى</div><div class="value mono" id="kPMCount">0</div><div class="sub">مرضى فريدون</div></div>
         <div class="kpi"><div class="label">إجمالي النقدي</div><div class="value mono" id="kPMCash">0</div><div class="sub">Cash</div></div>
-        <div class="kpi gold"><div class="label">إجمالي الآجل</div><div class="value mono" id="kPMCredit">0</div><div class="sub">Credit</div></div>
+        <div class="kpi gold"><div class="label">تأمين / شركات</div><div class="value mono" id="kPMCredit">0</div><div class="sub">Credit</div></div>
         <div class="kpi rose"><div class="label">صافي الإيراد</div><div class="value mono" id="kPMTotal">0</div><div class="sub">Total Net</div></div>
       </div>
       <div class="table-card">
@@ -777,7 +777,7 @@
               <th data-key="nationality">الجنسية <span class="arrow"></span></th>
               <th data-key="trType">نوع المعاملة <span class="arrow"></span></th>
               <th data-key="cash">نقدي <span class="arrow"></span></th>
-              <th data-key="credit">آجل <span class="arrow"></span></th>
+              <th data-key="credit">تأمين / شركات <span class="arrow"></span></th>
               <th data-key="total">الإجمالي <span class="arrow"></span></th>
             </tr></thead>
             <tbody id="pmTbody"></tbody>
@@ -2214,8 +2214,9 @@ function processDetailedRows(rows){
   const kNat    = header.find(k => k.trim().toUpperCase() === 'NATIONALITY_AR') || 'NATIONALITY_AR';
   const kTrType = header.find(k => k.trim().toUpperCase() === 'TR_NM_AR') || 'TR_NM_AR';
   const kCash   = header.find(k => k.trim().toUpperCase() === 'CASH')   || 'CASH';
-  const kCredit = header.find(k => k.trim().toUpperCase() === 'CRIDT')  || 'CRIDT';
-  const kTotal  = header.find(k => k.trim().toUpperCase() === 'TOTNET') || 'TOTNET';
+  // CMP_VL = company/insurance portion (what Crystal Report calls "credit")
+  const kCmpVl  = header.find(k => k.trim().toUpperCase() === 'CMP_VL') || 'CMP_VL';
+  const kPatVl  = header.find(k => k.trim().toUpperCase() === 'PAT_VL') || 'PAT_VL';
 
   detailedData = rows
     .filter(r => r[kPat] !== undefined && r[kPat] !== null && r[kPat] !== '')
@@ -2225,6 +2226,8 @@ function processDetailedRows(rows){
       let type = 'clinic';
       if(patUpper.startsWith('IQ')) type = 'IQ';
       else if(patUpper.startsWith('DL')) type = 'DL';
+      const cash   = parseNum(r[kCash]);
+      const credit = parseNum(r[kCmpVl]);   // company/insurance share
       return {
         patCd,
         type,
@@ -2235,12 +2238,12 @@ function processDetailedRows(rows){
         patientName: String(r[kPatName]||'').trim(),
         nationality: String(r[kNat]||'').trim(),
         trType: String(r[kTrType]||'').trim(),
-        cash:   parseNum(r[kCash]),
-        credit: parseNum(r[kCredit]),
-        total:  parseNum(r[kTotal]),
+        cash,
+        credit,
+        total: cash + credit,   // matches Crystal Report total
       };
     })
-    .filter(r => r.total !== 0 || r.cash !== 0 || r.credit !== 0);
+    ; // keep all rows with valid PAT_CD (zero-amount rows still count as patient visits)
 
   clinicServicesData = detailedData.filter(r => r.type === 'clinic');
   permitsData        = detailedData.filter(r => r.type === 'IQ' || r.type === 'DL');
