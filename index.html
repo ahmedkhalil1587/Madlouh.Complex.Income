@@ -681,7 +681,7 @@
         <span class="df-result" id="csDateResult"></span>
       </div>
       <div class="kpi-grid">
-        <div class="kpi ink"><div class="label">عدد المعاملات</div><div class="value mono" id="kCSCount">0</div><div class="sub">إجمالي الزيارات</div></div>
+        <div class="kpi ink"><div class="label">عدد المرضى</div><div class="value mono" id="kCSCount">0</div><div class="sub">مرضى فريدون</div></div>
         <div class="kpi"><div class="label">إجمالي النقدي</div><div class="value mono" id="kCSCash">0</div><div class="sub">Cash</div></div>
         <div class="kpi gold"><div class="label">إجمالي الآجل</div><div class="value mono" id="kCSCredit">0</div><div class="sub">Credit</div></div>
         <div class="kpi rose"><div class="label">صافي الإيراد</div><div class="value mono" id="kCSTotal">0</div><div class="sub">Total Net</div></div>
@@ -747,7 +747,7 @@
         </span>
       </div>
       <div class="kpi-grid">
-        <div class="kpi ink"><div class="label">عدد المعاملات</div><div class="value mono" id="kPMCount">0</div><div class="sub">إجمالي الفحوصات</div></div>
+        <div class="kpi ink"><div class="label">عدد المرضى</div><div class="value mono" id="kPMCount">0</div><div class="sub">مرضى فريدون</div></div>
         <div class="kpi"><div class="label">إجمالي النقدي</div><div class="value mono" id="kPMCash">0</div><div class="sub">Cash</div></div>
         <div class="kpi gold"><div class="label">إجمالي الآجل</div><div class="value mono" id="kPMCredit">0</div><div class="sub">Credit</div></div>
         <div class="kpi rose"><div class="label">صافي الإيراد</div><div class="value mono" id="kPMTotal">0</div><div class="sub">Total Net</div></div>
@@ -2321,8 +2321,10 @@ function groupDetailed(rows){
   const g = {};
   rows.forEach(r=>{
     const k = `${r.doctor}||${r.dept}`;
-    if(!g[k]) g[k]={doctor:r.doctor, dept:r.dept, count:0, cash:0, credit:0, total:0, date:''};
-    g[k].count++; g[k].cash+=r.cash; g[k].credit+=r.credit; g[k].total+=r.total;
+    if(!g[k]) g[k]={doctor:r.doctor, dept:r.dept, _pats:new Set(), count:0, cash:0, credit:0, total:0, date:''};
+    g[k]._pats.add(r.patCd);
+    g[k].count = g[k]._pats.size;
+    g[k].cash+=r.cash; g[k].credit+=r.credit; g[k].total+=r.total;
   });
   return Object.values(g);
 }
@@ -2339,12 +2341,12 @@ function sortDetailed(rows, sortObj){
 // =================== CLINIC SERVICES ===================
 function renderClinicServices(){
   const data = filterDetailed(clinicServicesData, csFilter);
-  document.getElementById('kCSCount').textContent  = data.length.toLocaleString();
+  document.getElementById('kCSCount').textContent  = new Set(data.map(r=>r.patCd)).size.toLocaleString();
   document.getElementById('kCSCash').textContent   = fmt(data.reduce((s,r)=>s+r.cash,0));
   document.getElementById('kCSCredit').textContent = fmt(data.reduce((s,r)=>s+r.credit,0));
   document.getElementById('kCSTotal').textContent  = fmt(data.reduce((s,r)=>s+r.total,0));
-  const count = data.length;
-  document.getElementById('csDateResult').textContent = (csFilter.from||csFilter.to)?`${count} معاملة`:'';
+  const count = new Set(data.map(r=>r.patCd)).size;
+  document.getElementById('csDateResult').textContent = (csFilter.from||csFilter.to)?`${count} مريض`:'';
   drawCSTable();
 }
 
@@ -2371,7 +2373,7 @@ function drawCSTable(){
   const thead = document.querySelector('#csTable thead tr');
   if(thead){
     thead.innerHTML = isG
-      ? `<th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="count">عدد المعاملات <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`
+      ? `<th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="count">عدد المرضى <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`
       : `<th data-key="date">التاريخ <span class="arrow"></span></th><th data-key="patCd">رقم الملف <span class="arrow"></span></th><th data-key="patientName">اسم المريض <span class="arrow"></span></th><th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="nationality">الجنسية <span class="arrow"></span></th><th data-key="trType">النوع <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`;
     attachSortListeners('#csTable', csSort, drawCSTable);
   }
@@ -2419,11 +2421,11 @@ document.getElementById('csViewGrouped').addEventListener('click',()=>{
 // =================== PERMITS ===================
 function renderPermits(){
   const data = filterDetailed(permitsData, pmFilter, pmTypeFilter);
-  document.getElementById('kPMCount').textContent  = data.length.toLocaleString();
+  document.getElementById('kPMCount').textContent  = new Set(data.map(r=>r.patCd)).size.toLocaleString();
   document.getElementById('kPMCash').textContent   = fmt(data.reduce((s,r)=>s+r.cash,0));
   document.getElementById('kPMCredit').textContent = fmt(data.reduce((s,r)=>s+r.credit,0));
   document.getElementById('kPMTotal').textContent  = fmt(data.reduce((s,r)=>s+r.total,0));
-  document.getElementById('pmDateResult').textContent = (pmFilter.from||pmFilter.to)?`${data.length} معاملة`:'';
+  document.getElementById('pmDateResult').textContent = (pmFilter.from||pmFilter.to)?`${new Set(data.map(r=>r.patCd)).size} مريض`:'';
   drawPMTable();
 }
 
@@ -2445,7 +2447,7 @@ function drawPMTable(){
   const thead = document.querySelector('#pmTable thead tr');
   if(thead){
     thead.innerHTML = isG
-      ? `<th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="count">عدد المعاملات <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`
+      ? `<th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="count">عدد المرضى <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`
       : `<th data-key="date">التاريخ <span class="arrow"></span></th><th data-key="patCd">رقم الملف <span class="arrow"></span></th><th data-key="type">النوع <span class="arrow"></span></th><th data-key="patientName">اسم المريض <span class="arrow"></span></th><th data-key="doctor">الطبيب <span class="arrow"></span></th><th data-key="dept">العيادة <span class="arrow"></span></th><th data-key="nationality">الجنسية <span class="arrow"></span></th><th data-key="trType">المعاملة <span class="arrow"></span></th><th data-key="cash">نقدي <span class="arrow"></span></th><th data-key="credit">آجل <span class="arrow"></span></th><th data-key="total">الإجمالي <span class="arrow"></span></th>`;
     attachSortListeners('#pmTable', pmSort, drawPMTable);
   }
@@ -2527,7 +2529,7 @@ function getTableDef(type){
       title: isCS ? 'خدمات العيادات (مجمع)' : 'الإقامات والرخص (مجمع)',
       cols:[
         {h:'الطبيب',k:'doctor'},{h:'العيادة',k:'dept'},
-        {h:'عدد المعاملات',k:'count',fn:r=>(r.count||0)},
+        {h:'عدد المرضى',k:'count',fn:r=>(r.count||0)},
         {h:'نقدي',k:'cash',fn:r=>r.cash},{h:'آجل',k:'credit',fn:r=>r.credit},{h:'الإجمالي',k:'total',fn:r=>r.total},
       ],
       getRows: ()=>rows,
