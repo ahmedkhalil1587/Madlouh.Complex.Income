@@ -2026,7 +2026,7 @@ function getCombinedRows(){
 // ============================================================
 //  TABLE DEFINITIONS
 // ============================================================
-function getTableDef(type){
+function getTableDefBase(type){
   const showDate = (type==='clinic'?clinicViewMode:type==='pharma'?pharmaViewMode:combinedViewMode) === 'detailed';
   const defs = {
     clinic:{
@@ -2518,10 +2518,9 @@ function attachSortListeners(tableSelector, sortObj, drawFn){
   });
 }
 
-// ---------- Extend getTableDef for new tables ----------
-const _origGetTableDef = getTableDef;
+// Unified getTableDef — handles all table types
 function getTableDef(type){
-  if(type !== 'clinicServices' && type !== 'permits') return _origGetTableDef(type);
+  if(type !== 'clinicServices' && type !== 'permits') return getTableDefBase(type);
   const isCS = type === 'clinicServices';
   const viewMode = isCS ? csViewMode : pmViewMode;
   const isGrouped = viewMode === 'grouped';
