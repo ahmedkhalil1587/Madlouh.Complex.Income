@@ -2213,10 +2213,10 @@ function processDetailedRows(rows){
   const kPatName = header.find(k => k.trim().toUpperCase() === 'PAT_NM_AR') || 'PAT_NM_AR';
   const kNat    = header.find(k => k.trim().toUpperCase() === 'NATIONALITY_AR') || 'NATIONALITY_AR';
   const kTrType = header.find(k => k.trim().toUpperCase() === 'TR_NM_AR') || 'TR_NM_AR';
-  const kCash   = header.find(k => k.trim().toUpperCase() === 'CASH')   || 'CASH';
-  // CMP_VL = company/insurance portion (what Crystal Report calls "credit")
-  const kCmpVl  = header.find(k => k.trim().toUpperCase() === 'CMP_VL') || 'CMP_VL';
-  const kPatVl  = header.find(k => k.trim().toUpperCase() === 'PAT_VL') || 'PAT_VL';
+  const kCash   = header.find(k => k.trim().toUpperCase() === 'CASH')     || 'CASH';
+  const kCridt  = header.find(k => k.trim().toUpperCase() === 'CRIDT')    || 'CRIDT'; // VISA payments
+  const kCmpVl  = header.find(k => k.trim().toUpperCase() === 'CMP_VL')   || 'CMP_VL'; // company/insurance
+  const kRet    = header.find(k => k.trim().toUpperCase() === 'RET')      || 'RET';   // returns (negative)
 
   detailedData = rows
     .filter(r => r[kPat] !== undefined && r[kPat] !== null && r[kPat] !== '')
@@ -2226,8 +2226,9 @@ function processDetailedRows(rows){
       let type = 'clinic';
       if(patUpper.startsWith('IQ')) type = 'IQ';
       else if(patUpper.startsWith('DL')) type = 'DL';
-      const cash   = parseNum(r[kCash]);
-      const credit = parseNum(r[kCmpVl]);   // company/insurance share
+      const cash   = parseNum(r[kCash]) + parseNum(r[kCridt]); // direct cash + VISA
+      const credit = parseNum(r[kCmpVl]);                        // company/insurance share
+      const ret    = parseNum(r[kRet]);                          // returns (negative value)
       return {
         patCd,
         type,
@@ -2240,7 +2241,7 @@ function processDetailedRows(rows){
         trType: String(r[kTrType]||'').trim(),
         cash,
         credit,
-        total: cash + credit,   // matches Crystal Report total
+        total: cash + credit + ret,  // ✓ matches Crystal Report: CASH+CRIDT+CMP_VL+RET
       };
     })
     ; // keep all rows with valid PAT_CD (zero-amount rows still count as patient visits)
