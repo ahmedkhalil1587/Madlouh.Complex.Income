@@ -2153,7 +2153,7 @@ function exportExcel(type){
   const data = rows.map(r=> def.cols.map(c=>{
     const val = c.fn ? c.fn(r) : (r[c.k]??'');
     // For numeric cols, strip commas for proper Excel numbers
-    if(c.k && ['cashNoVat','cashVat','credit','total','cash','netNoVat','clinicCash','pharmaCash','totalCash','clinicCredit','pharmaCredit','totalCredit','grandTotal'].includes(c.k)){
+    if(c.k && ['cashNoVat','cashVat','credit','total','cash','netNoVat','clinicCash','pharmaCash','totalCash','clinicCredit','pharmaCredit','totalCredit','grandTotal','count'].includes(c.k)){
       return Number(r[c.k])||0;
     }
     return val;
@@ -2532,24 +2532,24 @@ function getTableDef(type){
       cols:[
         {h:'الطبيب',k:'doctor'},{h:'العيادة',k:'dept'},
         {h:'عدد المرضى',k:'count',fn:r=>(r.count||0)},
-        {h:'نقدي',k:'cash',fn:r=>r.cash},{h:'آجل',k:'credit',fn:r=>r.credit},{h:'الإجمالي',k:'total',fn:r=>r.total},
+        {h:'نقدي',k:'cash',fn:r=>fmt(r.cash)},{h:'تأمين / شركات',k:'credit',fn:r=>fmt(r.credit)},{h:'الإجمالي',k:'total',fn:r=>fmt(r.total)},
       ],
       getRows: ()=>rows,
       footer: r=>[
         'الإجمالي','',r.reduce((s,x)=>s+(x.count||0),0),
-        r.reduce((s,x)=>s+x.cash,0),r.reduce((s,x)=>s+x.credit,0),r.reduce((s,x)=>s+x.total,0)
+        fmt(r.reduce((s,x)=>s+x.cash,0)),fmt(r.reduce((s,x)=>s+x.credit,0)),fmt(r.reduce((s,x)=>s+x.total,0))
       ],
     };
   }
   const baseCols = isCS
-    ? [{h:'التاريخ',k:'date',fn:r=>toISO(r.date)||'—'},{h:'رقم الملف',k:'patCd'},{h:'اسم المريض',k:'patientName'},{h:'الطبيب',k:'doctor'},{h:'العيادة',k:'dept'},{h:'الجنسية',k:'nationality'},{h:'نوع المعاملة',k:'trType'},{h:'نقدي',k:'cash',fn:r=>r.cash},{h:'آجل',k:'credit',fn:r=>r.credit},{h:'الإجمالي',k:'total',fn:r=>r.total}]
-    : [{h:'التاريخ',k:'date',fn:r=>toISO(r.date)||'—'},{h:'رقم الملف',k:'patCd'},{h:'النوع',k:'type'},{h:'اسم المريض',k:'patientName'},{h:'الطبيب',k:'doctor'},{h:'العيادة',k:'dept'},{h:'الجنسية',k:'nationality'},{h:'المعاملة',k:'trType'},{h:'نقدي',k:'cash',fn:r=>r.cash},{h:'آجل',k:'credit',fn:r=>r.credit},{h:'الإجمالي',k:'total',fn:r=>r.total}];
+    ? [{h:'التاريخ',k:'date',fn:r=>toISO(r.date)||'—'},{h:'رقم الملف',k:'patCd'},{h:'اسم المريض',k:'patientName'},{h:'الطبيب',k:'doctor'},{h:'العيادة',k:'dept'},{h:'الجنسية',k:'nationality'},{h:'نوع المعاملة',k:'trType'},{h:'نقدي',k:'cash',fn:r=>fmt(r.cash)},{h:'تأمين / شركات',k:'credit',fn:r=>fmt(r.credit)},{h:'الإجمالي',k:'total',fn:r=>fmt(r.total)}]
+    : [{h:'التاريخ',k:'date',fn:r=>toISO(r.date)||'—'},{h:'رقم الملف',k:'patCd'},{h:'النوع',k:'type'},{h:'اسم المريض',k:'patientName'},{h:'الطبيب',k:'doctor'},{h:'العيادة',k:'dept'},{h:'الجنسية',k:'nationality'},{h:'المعاملة',k:'trType'},{h:'نقدي',k:'cash',fn:r=>fmt(r.cash)},{h:'تأمين / شركات',k:'credit',fn:r=>fmt(r.credit)},{h:'الإجمالي',k:'total',fn:r=>fmt(r.total)}];
   const n = baseCols.length;
   return {
     title: isCS ? 'خدمات العيادات (تفصيلي)' : 'الإقامات والرخص (تفصيلي)',
     cols: baseCols,
     getRows: ()=>rows,
-    footer: r=>[...Array(n-3).fill(''), 'الإجمالي', r.reduce((s,x)=>s+x.cash,0), r.reduce((s,x)=>s+x.credit,0), r.reduce((s,x)=>s+x.total,0)],
+    footer: r=>[...Array(n-3).fill(''), 'الإجمالي', fmt(r.reduce((s,x)=>s+x.cash,0)), fmt(r.reduce((s,x)=>s+x.credit,0)), fmt(r.reduce((s,x)=>s+x.total,0))],
   };
 }
 </script>
